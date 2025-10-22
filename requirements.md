@@ -78,6 +78,25 @@
 
 - **RF84** – O sistema deve implementar resolução de conflitos quando ambos os usuários editarem o mesmo desejo simultaneamente, aplicando last-write-wins e notificando o outro usuário da alteração.
 
+- **RF85** – O sistema deve permitir categorizar desejos em uma das seguintes categorias predefinidas:
+
+  - **Viagem** 🌍 – Lugares que o casal quer conhecer juntos (praias, cidades, resorts, trilhas)
+  - **Compras / Presentes** 🎁 – Coisas que um quer ganhar ou comprar (roupas, eletrônicos, itens pessoais)
+  - **Experiências** ✨ – Atividades e momentos a dois (shows, dantares, piqueniques, cinema, spa)
+  - **Metas do Casal** 🎯 – Objetivos compartilhados (mudar de cidade, comprar um carro, juntar grana)
+  - **Casa e Decoração** 🏡 – Ideias para o lar (móveis, plantas, decoração, eletros)
+  - **Datas Especiais** 📅 – Planos pra aniversários, dia dos namorados, comemorações do casal
+  - **Auto-cuidado** 🧘‍♀️ – Coisas individuais que melhoram o bem-estar (academia, massagem, skincare)
+  - **Animais de Estimação** 🐾 – Desejos relacionados a pets (adotar, comprar acessórios, viagens pet-friendly)
+  - **Projetos Criativos** 🎨 – Sonhos artísticos ou hobbies (fotografia, música, pintura, escrita)
+  - **Gastronomia** 🍝 – Lugares pra comer, receitas pra testar juntos, experiências gastronômicas
+  - **Sonhos Grandes** 🌠 – Coisas mais distantes ou inspiracionais (casa própria, casamento, filhos)
+  - **Doações e Impacto** 💗 – Desejos voltados a ajudar outros (doar, voluntariado, causas sociais)
+
+- **RF86** – O sistema deve permitir filtrar desejos por categoria, facilitando a organização e visualização.
+
+- **RF87** – O sistema deve exibir o emoji da categoria junto ao desejo na lista, proporcionando identificação visual rápida.
+
 ---
 
 ### 🖼️ Módulo: Memórias e Momentos Especiais
