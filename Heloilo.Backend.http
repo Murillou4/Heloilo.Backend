@@ -1,0 +1,6 @@
+@Heloilo.Backend_HostAddress = http://localhost:5236
+
+GET {{Heloilo.Backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
