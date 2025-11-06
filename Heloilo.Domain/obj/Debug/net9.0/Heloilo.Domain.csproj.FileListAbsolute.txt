@@ -2,8 +2,6 @@ E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\bin\Debug\net9.0\Heloilo.Domain.dll
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\bin\Debug\net9.0\Heloilo.Domain.pdb
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\obj\Debug\net9.0\Heloilo.Domain.GeneratedMSBuildEditorConfig.editorconfig
-E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\obj\Debug\net9.0\Heloilo.Domain.AssemblyInfoInputs.cache
-E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\obj\Debug\net9.0\Heloilo.Domain.AssemblyInfo.cs
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\obj\Debug\net9.0\Heloilo.Domain.csproj.CoreCompileInputs.cache
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\obj\Debug\net9.0\Heloilo.Domain.sourcelink.json
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Domain\obj\Debug\net9.0\Heloilo.Domain.dll

@@ -6,8 +6,6 @@ E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrast
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrastructure\bin\Debug\net9.0\Heloilo.Domain.pdb
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrastructure\obj\Debug\net9.0\Heloilo.Infrastructure.csproj.AssemblyReference.cache
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrastructure\obj\Debug\net9.0\Heloilo.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
-E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrastructure\obj\Debug\net9.0\Heloilo.Infrastructure.AssemblyInfoInputs.cache
-E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrastructure\obj\Debug\net9.0\Heloilo.Infrastructure.AssemblyInfo.cs
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrastructure\obj\Debug\net9.0\Heloilo.Infrastructure.csproj.CoreCompileInputs.cache
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrastructure\obj\Debug\net9.0\Heloilo.Infrastructure.sourcelink.json
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\Heloilo.Infrastructure\obj\Debug\net9.0\Heloilo..063A4ABD.Up2Date
