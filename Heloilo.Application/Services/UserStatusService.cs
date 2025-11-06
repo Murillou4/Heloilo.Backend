@@ -206,6 +206,21 @@ public class UserStatusService : IUserStatusService
         return (DateTime.UtcNow - status.StatusUpdatedAt).TotalHours > 4;
     }
 
+    public async Task<UserStatusDto> ClearExpiredStatusAsync(long userId)
+    {
+        var status = await _context.UserStatuses
+            .FirstOrDefaultAsync(s => s.UserId == userId);
+
+        if (status != null && (DateTime.UtcNow - status.StatusUpdatedAt).TotalHours > 4)
+        {
+            status.CurrentStatus = "Status expirado";
+            status.StatusUpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        return await GetCurrentStatusAsync(userId);
+    }
+
     private async Task<Relationship?> GetRelationshipAsync(long userId)
     {
         return await _context.Relationships

@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using Heloilo.Application.Helpers;
 using API;
 
 namespace Heloilo.WebAPI.Controllers;
@@ -50,6 +51,19 @@ public abstract class BaseController : ControllerBase
             );
         }
         return null;
+    }
+
+    /// <summary>
+    /// Valida e normaliza parâmetros de paginação
+    /// </summary>
+    /// <param name="page">Número da página (default: 1)</param>
+    /// <param name="pageSize">Tamanho da página (default: 20)</param>
+    /// <param name="defaultPageSize">Tamanho padrão da página (default: 20)</param>
+    /// <param name="maxPageSize">Tamanho máximo da página (default: 100)</param>
+    /// <returns>Tupla com (page, pageSize) validados e normalizados</returns>
+    protected (int Page, int PageSize) ValidateAndNormalizePagination(int page = 1, int pageSize = 20, int defaultPageSize = 20, int maxPageSize = 100)
+    {
+        return ValidationHelper.ValidatePagination(page, pageSize, defaultPageSize, maxPageSize);
     }
 }
 

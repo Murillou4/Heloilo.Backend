@@ -14,6 +14,19 @@ public class WishesController(IWishService wishService, ILogger<WishesController
     private readonly IWishService _wishService = wishService;
     private readonly ILogger<WishesController> _logger = logger;
 
+    /// <summary>
+    /// Lista os desejos do casal com filtros e paginação
+    /// </summary>
+    /// <param name="categoryId">ID da categoria para filtrar (opcional)</param>
+    /// <param name="search">Termo de busca para filtrar por título (opcional)</param>
+    /// <param name="sortBy">Campo para ordenação: 'createdAt', 'importanceLevel' (opcional)</param>
+    /// <param name="sortOrder">Ordem: 'asc' ou 'desc' (opcional)</param>
+    /// <param name="page">Número da página (default: 1)</param>
+    /// <param name="pageSize">Tamanho da página (default: 20, máximo: 100)</param>
+    /// <returns>Lista paginada de desejos</returns>
+    /// <response code="200">Desejos listados com sucesso</response>
+    /// <response code="401">Não autenticado</response>
+    /// <response code="500">Erro interno do servidor</response>
     [HttpGet]
     public async Task<ActionResult> GetWishes([FromQuery] long? categoryId, [FromQuery] string? search, [FromQuery] string? sortBy, [FromQuery] string? sortOrder, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
@@ -59,6 +72,16 @@ public class WishesController(IWishService wishService, ILogger<WishesController
         }
     }
 
+    /// <summary>
+    /// Cria um novo desejo
+    /// </summary>
+    /// <param name="dto">Dados do desejo (título, descrição, link, categoria, importância)</param>
+    /// <param name="image">Imagem ilustrativa do desejo (opcional, máximo 10MB)</param>
+    /// <returns>Desejo criado</returns>
+    /// <response code="200">Desejo criado com sucesso</response>
+    /// <response code="400">Dados inválidos ou relacionamento não encontrado</response>
+    /// <response code="401">Não autenticado</response>
+    /// <response code="500">Erro interno do servidor</response>
     [HttpPost]
     public async Task<ActionResult> CreateWish([FromForm] CreateWishDto dto, [FromForm] IFormFile? image)
     {

@@ -11,5 +11,6 @@ public interface IUserStatusService
     Task<PagedResult<UserStatusDto>> GetStatusHistoryAsync(long userId, DateOnly? date = null, int page = 1, int pageSize = 20);
     Task<PagedResult<UserStatusDto>> GetPartnerStatusHistoryAsync(long userId, DateOnly? startDate = null, DateOnly? endDate = null, int page = 1, int pageSize = 20);
     Task<bool> IsStatusExpiredAsync(long userId);
+    Task<UserStatusDto> ClearExpiredStatusAsync(long userId);
 }
 

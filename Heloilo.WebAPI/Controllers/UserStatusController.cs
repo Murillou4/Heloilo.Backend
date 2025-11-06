@@ -20,6 +20,13 @@ public class UserStatusController : BaseController
         _logger = logger;
     }
 
+    /// <summary>
+    /// Obtém o status atual do usuário autenticado
+    /// </summary>
+    /// <returns>Status atual do usuário</returns>
+    /// <response code="200">Status obtido com sucesso</response>
+    /// <response code="401">Não autenticado</response>
+    /// <response code="500">Erro interno do servidor</response>
     [HttpGet("current")]
     public async Task<ActionResult> GetCurrentStatus()
     {
@@ -37,6 +44,15 @@ public class UserStatusController : BaseController
         }
     }
 
+    /// <summary>
+    /// Atualiza o status atual do usuário
+    /// </summary>
+    /// <param name="dto">Novo status do usuário</param>
+    /// <returns>Status atualizado</returns>
+    /// <response code="200">Status atualizado com sucesso</response>
+    /// <response code="400">Dados inválidos</response>
+    /// <response code="401">Não autenticado</response>
+    /// <response code="500">Erro interno do servidor</response>
     [HttpPut]
     public async Task<ActionResult> UpdateStatus([FromBody] UpdateStatusDto dto)
     {
@@ -139,15 +155,9 @@ public class UserStatusController : BaseController
         try
         {
             var userId = GetCurrentUserId();
-            var status = await _statusService.GetCurrentStatusAsync(userId);
-            if (status != null && status.IsExpired)
-            {
-                await _statusService.UpdateStatusAsync(userId, new Heloilo.Application.DTOs.Status.UpdateStatusDto 
-                { 
-                    CurrentStatus = "Status expirado" 
-                });
-            }
-            return RouteMessages.Ok("Status limpo com sucesso", "Status atualizado");
+            var status = await _statusService.ClearExpiredStatusAsync(userId);
+            var data = new Dictionary<string, object> { { "status", status } };
+            return RouteMessages.Ok("Status limpo com sucesso", "Status atualizado", data);
         }
         catch (Exception ex)
         {

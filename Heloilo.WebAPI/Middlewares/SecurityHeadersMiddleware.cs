@@ -1,0 +1,50 @@
+namespace Heloilo.WebAPI.Middlewares;
+
+public class SecurityHeadersMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<SecurityHeadersMiddleware> _logger;
+
+    public SecurityHeadersMiddleware(RequestDelegate next, ILogger<SecurityHeadersMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        // Adicionar headers de segurança
+        context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+        context.Response.Headers.Append("X-Frame-Options", "DENY");
+        context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+        context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+        
+        // Content Security Policy básico
+        context.Response.Headers.Append("Content-Security-Policy", 
+            "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: https:; " +
+            "font-src 'self' data:; " +
+            "connect-src 'self' https:; " +
+            "frame-ancestors 'none';");
+
+        // Permissions Policy
+        context.Response.Headers.Append("Permissions-Policy",
+            "geolocation=(), " +
+            "microphone=(), " +
+            "camera=(), " +
+            "payment=(), " +
+            "usb=(), " +
+            "magnetometer=(), " +
+            "gyroscope=(), " +
+            "speaker=()");
+
+        // Remover informações de servidor
+        context.Response.Headers.Remove("Server");
+        context.Response.Headers.Remove("X-Powered-By");
+
+        await _next(context);
+    }
+}
+

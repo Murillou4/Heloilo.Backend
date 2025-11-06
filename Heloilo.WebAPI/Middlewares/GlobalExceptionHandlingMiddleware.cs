@@ -1,6 +1,6 @@
 using System.Net;
-using System.Text.Json;
 using Microsoft.IdentityModel.Tokens;
+using API;
 
 namespace Heloilo.WebAPI.Middlewares;
 
@@ -28,30 +28,55 @@ public class GlobalExceptionHandlingMiddleware
         }
     }
 
-    private static Task HandleExceptionAsync(HttpContext context, Exception exception)
+    private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        var code = exception switch
+        // Se a resposta já foi iniciada, não podemos modificá-la
+        if (context.Response.HasStarted)
         {
-            UnauthorizedAccessException => HttpStatusCode.Unauthorized,
-            InvalidOperationException => HttpStatusCode.BadRequest,
-            SecurityTokenException => HttpStatusCode.Unauthorized,
-            ArgumentException => HttpStatusCode.BadRequest,
-            KeyNotFoundException => HttpStatusCode.NotFound,
-            FileNotFoundException => HttpStatusCode.NotFound,
-            _ => HttpStatusCode.InternalServerError
+            return;
+        }
+
+        var response = exception switch
+        {
+            UnauthorizedAccessException => RouteMessages.Unauthorized(
+                exception.Message,
+                "Não autorizado"
+            ),
+            InvalidOperationException => RouteMessages.BadRequest(
+                exception.Message,
+                "Operação inválida"
+            ),
+            SecurityTokenException => RouteMessages.Unauthorized(
+                exception.Message,
+                "Token inválido"
+            ),
+            ArgumentException => RouteMessages.BadRequest(
+                exception.Message,
+                "Dados inválidos"
+            ),
+            KeyNotFoundException => RouteMessages.NotFound(
+                exception.Message,
+                "Recurso não encontrado"
+            ),
+            FileNotFoundException => RouteMessages.NotFound(
+                exception.Message,
+                "Arquivo não encontrado"
+            ),
+            _ => RouteMessages.InternalError(
+                "Ocorreu um erro interno no servidor",
+                "Erro interno",
+                new Dictionary<string, object>
+                {
+                    { "error", exception.Message },
+                    { "timestamp", DateTime.UtcNow }
+                }
+            )
         };
 
-        var result = JsonSerializer.Serialize(new
-        {
-            error = exception.Message,
-            statusCode = (int)code,
-            timestamp = DateTime.UtcNow
-        });
-
+        context.Response.StatusCode = response.StatusCode ?? 500;
         context.Response.ContentType = "application/json";
-        context.Response.StatusCode = (int)code;
 
-        return context.Response.WriteAsync(result);
+        await context.Response.WriteAsJsonAsync(response.Value);
     }
 }
 

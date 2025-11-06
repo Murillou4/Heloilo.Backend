@@ -91,23 +91,42 @@ builder.Services.AddAuthorization();
 
 // Add CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+var allowedMethods = builder.Configuration.GetSection("Cors:AllowedMethods").Get<string[]>() 
+    ?? new[] { "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS" };
+var allowedHeaders = builder.Configuration.GetSection("Cors:AllowedHeaders").Get<string[]>()
+    ?? new[] { "Content-Type", "Authorization", "X-Requested-With" };
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
         if (allowedOrigins.Length > 0)
         {
+            // Produção: Origens específicas
             policy.WithOrigins(allowedOrigins)
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials();
+                  .WithMethods(allowedMethods)
+                  .WithHeaders(allowedHeaders)
+                  .AllowCredentials()
+                  .SetPreflightMaxAge(TimeSpan.FromHours(24)); // Cache preflight requests
         }
         else
         {
-            // Fallback para desenvolvimento
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
+            // Desenvolvimento: Mais permissivo mas ainda com algumas restrições
+            if (builder.Environment.IsDevelopment())
+            {
+                policy.AllowAnyOrigin()
+                      .WithMethods(allowedMethods)
+                      .WithHeaders(allowedHeaders)
+                      .SetPreflightMaxAge(TimeSpan.FromHours(1));
+            }
+            else
+            {
+                // Em produção sem configuração, usar política restritiva
+                policy.WithOrigins("https://localhost") // Placeholder - deve ser configurado
+                      .WithMethods(allowedMethods)
+                      .WithHeaders(allowedHeaders)
+                      .AllowCredentials();
+            }
         }
     });
 });
@@ -195,7 +214,19 @@ app.UseHttpsRedirection();
 // Response Compression
 app.UseResponseCompression();
 
+// Security Headers (primeiro para proteger todas as respostas)
+app.UseMiddleware<Heloilo.WebAPI.Middlewares.SecurityHeadersMiddleware>();
+
+// Logging (para registrar todas as requisições)
+app.UseMiddleware<Heloilo.WebAPI.Middlewares.LoggingMiddleware>();
+
 app.UseCors();
+
+// Request Size Validation (antes de processar o body)
+app.UseMiddleware<Heloilo.WebAPI.Middlewares.RequestSizeValidationMiddleware>();
+
+// Content Type Validation
+app.UseMiddleware<Heloilo.WebAPI.Middlewares.ContentTypeValidationMiddleware>();
 
 // Rate limiting
 app.UseMiddleware<RateLimitingMiddleware>();
@@ -205,11 +236,14 @@ app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
 // Health checks endpoints são gerenciados pelo HealthController
 
+// Custom JWT middleware for setting user context (deve vir antes de UseAuthentication)
+app.UseMiddleware<JwtAuthenticationMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Custom JWT middleware for setting user context
-app.UseMiddleware<JwtAuthenticationMiddleware>();
+// Cache Headers (depois da autenticação, antes dos controllers)
+app.UseMiddleware<Heloilo.WebAPI.Middlewares.CacheHeadersMiddleware>();
 
 app.MapControllers();
 

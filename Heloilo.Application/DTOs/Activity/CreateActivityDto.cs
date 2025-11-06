@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Heloilo.Application.Helpers;
 
 namespace Heloilo.Application.DTOs.Activity;
 
@@ -27,6 +28,17 @@ public class CreateActivityDto : IValidatableObject
             {
                 yield return new ValidationResult("Lembrete deve ser 5, 15, 30 ou 60 minutos", new[] { nameof(ReminderMinutes) });
             }
+        }
+        
+        // Validar data
+        if (ActivityDate.Year < 1900)
+        {
+            yield return new ValidationResult("Data da atividade não pode ser anterior a 1900", new[] { nameof(ActivityDate) });
+        }
+        
+        if (!ValidationHelper.IsValidDate(ActivityDate.Day, ActivityDate.Month, ActivityDate.Year))
+        {
+            yield return new ValidationResult("Data inválida", new[] { nameof(ActivityDate) });
         }
     }
 }

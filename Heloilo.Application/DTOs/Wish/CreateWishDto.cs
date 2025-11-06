@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using Heloilo.Application.Helpers;
 
 namespace Heloilo.Application.DTOs.Wish;
 
-public class CreateWishDto
+public class CreateWishDto : IValidatableObject
 {
     [Required(ErrorMessage = "Título é obrigatório")]
     [MaxLength(500, ErrorMessage = "Título deve ter no máximo 500 caracteres")]
@@ -20,5 +21,16 @@ public class CreateWishDto
 
     [Range(1, 5, ErrorMessage = "Nível de importância deve estar entre 1 e 5")]
     public int ImportanceLevel { get; set; } = 3;
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!string.IsNullOrWhiteSpace(LinkUrl) && !ValidationHelper.IsValidUrl(LinkUrl))
+        {
+            yield return new ValidationResult(
+                "URL deve usar protocolo HTTP ou HTTPS",
+                new[] { nameof(LinkUrl) }
+            );
+        }
+    }
 }
 

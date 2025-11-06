@@ -20,6 +20,14 @@ public class AuthController : BaseController
         _logger = logger;
     }
 
+    /// <summary>
+    /// Registra um novo usuário no sistema
+    /// </summary>
+    /// <param name="request">Dados de registro do usuário (email, senha, nome, apelido)</param>
+    /// <returns>Dados do usuário criado e tokens de autenticação</returns>
+    /// <response code="200">Usuário registrado com sucesso</response>
+    /// <response code="400">Dados inválidos ou email já cadastrado</response>
+    /// <response code="500">Erro interno do servidor</response>
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<ActionResult> Register([FromBody] RegisterRequest request)
@@ -57,6 +65,14 @@ public class AuthController : BaseController
         }
     }
 
+    /// <summary>
+    /// Autentica um usuário e retorna tokens de acesso
+    /// </summary>
+    /// <param name="request">Credenciais de login (email e senha)</param>
+    /// <returns>Dados do usuário e tokens de autenticação</returns>
+    /// <response code="200">Login realizado com sucesso</response>
+    /// <response code="401">Credenciais inválidas</response>
+    /// <response code="500">Erro interno do servidor</response>
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<ActionResult> Login([FromBody] LoginRequest request)
@@ -95,6 +111,14 @@ public class AuthController : BaseController
         }
     }
 
+    /// <summary>
+    /// Renova o token de acesso usando um refresh token válido
+    /// </summary>
+    /// <param name="request">Refresh token atual</param>
+    /// <returns>Novos tokens de autenticação</returns>
+    /// <response code="200">Token renovado com sucesso</response>
+    /// <response code="401">Refresh token inválido ou expirado</response>
+    /// <response code="500">Erro interno do servidor</response>
     [HttpPost("refresh")]
     [AllowAnonymous]
     public async Task<ActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
