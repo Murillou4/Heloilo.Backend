@@ -191,7 +191,7 @@ public class MemoryService : IMemoryService
         return true;
     }
 
-    public async Task<string> AddMediaAsync(long memoryId, long userId, IFormFile file)
+    public async Task<long> AddMediaAsync(long memoryId, long userId, IFormFile file)
     {
         var memory = await _context.Memories
             .FirstOrDefaultAsync(m => m.Id == memoryId && m.DeletedAt == null);
@@ -223,7 +223,22 @@ public class MemoryService : IMemoryService
         _context.MemoryMedia.Add(media);
         await _context.SaveChangesAsync();
 
-        return Convert.ToBase64String(media.FileBlob);
+        return media.Id;
+    }
+
+    public async Task<byte[]?> GetMemoryMediaAsync(long mediaId, long userId)
+    {
+        var media = await _context.MemoryMedia
+            .Include(m => m.Memory)
+            .FirstOrDefaultAsync(m => m.Id == mediaId);
+
+        if (media == null) throw new KeyNotFoundException("Mídia não encontrada");
+
+        var relationship = await GetRelationshipAsync(userId);
+        if (relationship == null || media.Memory.RelationshipId != relationship.Id)
+            throw new UnauthorizedAccessException("Acesso negado");
+
+        return media.FileBlob;
     }
 
     public async Task<bool> DeleteMediaAsync(long memoryId, long mediaId, long userId)

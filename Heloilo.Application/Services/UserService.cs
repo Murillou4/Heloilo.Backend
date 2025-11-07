@@ -80,7 +80,7 @@ public class UserService : IUserService
         return MapToDto(user);
     }
 
-    public async Task<string?> UploadProfilePhotoAsync(long userId, IFormFile file)
+    public async Task<bool> UploadProfilePhotoAsync(long userId, IFormFile file)
     {
         if (file == null || file.Length == 0)
         {
@@ -108,7 +108,7 @@ public class UserService : IUserService
 
         await _context.SaveChangesAsync();
 
-        return Convert.ToBase64String(user.ProfilePhotoBlob);
+        return true;
     }
 
     public async Task<byte[]?> GetProfilePhotoAsync(long userId)

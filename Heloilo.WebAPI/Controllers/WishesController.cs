@@ -83,7 +83,7 @@ public class WishesController(IWishService wishService, ILogger<WishesController
     /// <response code="401">Não autenticado</response>
     /// <response code="500">Erro interno do servidor</response>
     [HttpPost]
-    public async Task<ActionResult> CreateWish([FromForm] CreateWishDto dto, [FromForm] IFormFile? image)
+    public async Task<ActionResult> CreateWish([FromForm] CreateWishDto dto, IFormFile? image)
     {
         try
         {
@@ -113,7 +113,7 @@ public class WishesController(IWishService wishService, ILogger<WishesController
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult> UpdateWish(long id, [FromForm] UpdateWishDto dto, [FromForm] IFormFile? image)
+    public async Task<ActionResult> UpdateWish(long id, [FromForm] UpdateWishDto dto, IFormFile? image)
     {
         try
         {

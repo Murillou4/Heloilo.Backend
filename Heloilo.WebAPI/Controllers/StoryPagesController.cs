@@ -58,7 +58,7 @@ public class StoryPagesController : BaseController
     }
 
     [HttpPost]
-    public async Task<ActionResult> CreateStoryPage([FromForm] CreateStoryPageDto dto, [FromForm] IFormFile? image)
+    public async Task<ActionResult> CreateStoryPage([FromForm] CreateStoryPageDto dto, IFormFile? image)
     {
         try
         {
@@ -80,7 +80,7 @@ public class StoryPagesController : BaseController
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult> UpdateStoryPage(long id, [FromForm] CreateStoryPageDto dto, [FromForm] IFormFile? image)
+    public async Task<ActionResult> UpdateStoryPage(long id, [FromForm] CreateStoryPageDto dto, IFormFile? image)
     {
         try
         {

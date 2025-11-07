@@ -66,7 +66,7 @@ public class MemoriesController : BaseController
     }
 
     [HttpPost]
-    public async Task<ActionResult> CreateMemory([FromForm] CreateMemoryDto dto, [FromForm] List<IFormFile>? media)
+    public async Task<ActionResult> CreateMemory([FromForm] CreateMemoryDto dto, List<IFormFile>? media)
     {
         try
         {
@@ -155,8 +155,8 @@ public class MemoriesController : BaseController
         try
         {
             var userId = GetCurrentUserId();
-            var photoBase64 = await _memoryService.AddMediaAsync(id, userId, file);
-            var data = new Dictionary<string, object> { { "photoBase64", photoBase64 } };
+            var mediaId = await _memoryService.AddMediaAsync(id, userId, file);
+            var data = new Dictionary<string, object> { { "mediaId", mediaId } };
             return RouteMessages.Ok("Mídia adicionada com sucesso", "Mídia adicionada", data);
         }
         catch (KeyNotFoundException ex)

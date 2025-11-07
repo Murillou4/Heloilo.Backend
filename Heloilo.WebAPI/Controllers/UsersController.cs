@@ -100,8 +100,8 @@ public class UsersController : BaseController
             }
 
             var userId = GetCurrentUserId();
-            var photoBase64 = await _userService.UploadProfilePhotoAsync(userId, file);
-            var data = new Dictionary<string, object> { { "photoBase64", photoBase64 ?? string.Empty } };
+            await _userService.UploadProfilePhotoAsync(userId, file);
+            var data = new Dictionary<string, object> { { "photoId", userId } };
             return RouteMessages.Ok("Foto enviada com sucesso", "Foto atualizada", data);
         }
         catch (ArgumentException ex)

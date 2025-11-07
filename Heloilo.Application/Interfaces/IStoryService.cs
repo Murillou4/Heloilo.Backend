@@ -11,5 +11,6 @@ public interface IStoryService
     Task<StoryPageDto> CreateStoryPageAsync(long userId, CreateStoryPageDto dto, IFormFile? image = null);
     Task<StoryPageDto> UpdateStoryPageAsync(long pageId, long userId, CreateStoryPageDto dto, IFormFile? image = null);
     Task<bool> DeleteStoryPageAsync(long pageId, long userId);
+    Task<byte[]?> GetStoryPageImageAsync(long pageId, long userId);
 }
 

@@ -16,5 +16,6 @@ public interface IWishService
     Task<WishCommentDto> AddCommentAsync(long wishId, long userId, CreateWishCommentDto dto);
     Task<WishCommentDto> UpdateCommentAsync(long commentId, long userId, CreateWishCommentDto dto);
     Task<bool> DeleteCommentAsync(long commentId, long userId);
+    Task<byte[]?> GetWishImageAsync(long wishId, long userId);
 }
 

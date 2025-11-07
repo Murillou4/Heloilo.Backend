@@ -11,8 +11,9 @@ public interface IMemoryService
     Task<MemoryDto> CreateMemoryAsync(long userId, CreateMemoryDto dto, List<IFormFile>? media = null);
     Task<MemoryDto> UpdateMemoryAsync(long memoryId, long userId, CreateMemoryDto dto);
     Task<bool> DeleteMemoryAsync(long memoryId, long userId);
-    Task<string> AddMediaAsync(long memoryId, long userId, IFormFile file);
+    Task<long> AddMediaAsync(long memoryId, long userId, IFormFile file);
     Task<bool> DeleteMediaAsync(long memoryId, long mediaId, long userId);
     Task<List<string>> GetTagsAsync(long userId);
+    Task<byte[]?> GetMemoryMediaAsync(long mediaId, long userId);
 }
 

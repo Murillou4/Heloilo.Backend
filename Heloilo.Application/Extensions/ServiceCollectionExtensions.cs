@@ -43,6 +43,9 @@ public static class ServiceCollectionExtensions
 
         // Celebration services
         services.AddScoped<ICelebrationService, CelebrationService>();
+
+        // Media services
+        services.AddScoped<IMediaService, MediaService>();
         
         return services;
     }

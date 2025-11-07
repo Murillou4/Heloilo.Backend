@@ -307,6 +307,21 @@ public class ChatService : IChatService
         return MapToDto(message);
     }
 
+    public async Task<byte[]?> GetMessageMediaAsync(long mediaId, long userId)
+    {
+        var media = await _context.MessageMedia
+            .Include(m => m.ChatMessage)
+            .FirstOrDefaultAsync(m => m.Id == mediaId);
+
+        if (media == null) throw new KeyNotFoundException("Mídia não encontrada");
+
+        var relationship = await GetRelationshipAsync(userId);
+        if (relationship == null || media.ChatMessage.RelationshipId != relationship.Id)
+            throw new UnauthorizedAccessException("Acesso negado");
+
+        return media.FileBlob;
+    }
+
     private async Task<Relationship?> GetRelationshipAsync(long userId)
     {
         return await _context.Relationships

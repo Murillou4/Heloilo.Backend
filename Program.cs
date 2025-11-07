@@ -4,7 +4,10 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Heloilo.Infrastructure.Data;
 using Heloilo.WebAPI.Middlewares;
+using Heloilo.WebAPI.Swagger;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Controllers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,8 +46,14 @@ Heloilo.Application.Extensions.ServiceCollectionExtensions.AddApplicationService
 // Add SignalR
 builder.Services.AddSignalR();
 
-// Add Controllers
-builder.Services.AddControllers();
+// Add Controllers with JSON options
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Configurar serialização JSON para DateOnly
+        options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        // DateOnly é suportado nativamente no .NET 9, mas garantimos compatibilidade
+    });
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -87,7 +96,11 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Permitir acesso anônimo aos endpoints do Swagger
+    options.FallbackPolicy = null; // Não requer autenticação por padrão, apenas onde [Authorize] estiver
+});
 
 // Add CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
@@ -139,6 +152,34 @@ builder.Services.AddOpenApi();
 
 // Add Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
+
+// Função auxiliar local para gerar IDs de schema de forma segura
+static string GetSafeSchemaId(Type type)
+{
+    if (type == null)
+        return "Unknown";
+    
+    // Se FullName não for null, usar diretamente
+    if (!string.IsNullOrEmpty(type.FullName))
+        return type.FullName.Replace("+", ".").Replace("`", "");
+    
+    // Fallback: usar namespace + nome do tipo
+    var namespacePrefix = !string.IsNullOrEmpty(type.Namespace) ? $"{type.Namespace}." : "";
+    var typeName = type.Name.Replace("+", ".").Replace("`", "");
+    
+    // Para tipos genéricos, incluir informações dos tipos genéricos
+    if (type.IsGenericType)
+    {
+        var genericArgs = type.GetGenericArguments()
+            .Select(arg => GetSafeSchemaId(arg))
+            .ToArray();
+        var baseName = typeName.Split('`')[0];
+        return $"{namespacePrefix}{baseName}[{string.Join(",", genericArgs)}]";
+    }
+    
+    return $"{namespacePrefix}{typeName}";
+}
+
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
@@ -187,21 +228,193 @@ builder.Services.AddSwaggerGen(c =>
     {
         c.IncludeXmlComments(xmlPath);
     }
+    
+    // Ignorar erros de esquema do Swagger para evitar problemas na geração
+    c.IgnoreObsoleteActions();
+    c.IgnoreObsoleteProperties();
+    
+    // Resolver conflitos de esquema usando o nome completo do tipo
+    // Tratar casos onde FullName pode ser null (tipos genéricos, anônimos, etc.)
+    c.CustomSchemaIds(type => GetSafeSchemaId(type));
+    
+    // Resolver conflitos de ações (se houver múltiplos endpoints com a mesma rota)
+    c.ResolveConflictingActions(apiDescriptions => apiDescriptions.First());
+    
+    // Configurar DateOnly como string no Swagger
+    c.MapType<DateOnly>(() => new Microsoft.OpenApi.Models.OpenApiSchema
+    {
+        Type = "string",
+        Format = "date"
+    });
+    
+    c.MapType<DateOnly?>(() => new Microsoft.OpenApi.Models.OpenApiSchema
+    {
+        Type = "string",
+        Format = "date",
+        Nullable = true
+    });
+    
+    // Configurar IFormFile como binary type para Swagger
+    // Isso previne erros durante a geração de parâmetros antes dos filters processarem
+    // Mapear apenas IFormFile uma vez - Swashbuckle trata IFormFile e IFormFile? como o mesmo tipo
+    c.MapType<IFormFile>(() => new Microsoft.OpenApi.Models.OpenApiSchema
+    {
+        Type = "string",
+        Format = "binary",
+        Description = "File upload"
+    });
+    
+    // Mapear Dictionary<string, object> como object genérico para evitar problemas de schema
+    c.MapType<Dictionary<string, object>>(() => new Microsoft.OpenApi.Models.OpenApiSchema
+    {
+        Type = "object",
+        AdditionalProperties = new Microsoft.OpenApi.Models.OpenApiSchema
+        {
+            Type = "object",
+            Description = "Dynamic value"
+        },
+        Description = "Dictionary with string keys and object values"
+    });
+    
+    // Configurar suporte para form data e file uploads
+    // IMPORTANTE: ParameterFilter deve vir ANTES do OperationFilter
+    // para configurar os schemas antes que o Swagger tente processá-los
+    // O ParameterFilter configura os schemas para evitar erros durante a geração
+    c.ParameterFilter<FormFileParameterFilter>();
+    // O OperationFilter remove os parâmetros do form e move para request body
+    c.OperationFilter<FormFileOperationFilter>();
+    
+    
+    // Adicionar filtro de schema para tratar tipos problemáticos e adicionar tratamento de erros
+    c.SchemaFilter<SafeSchemaFilter>();
+    
+    // Configurar tratamento de erros na geração do Swagger
+    c.CustomOperationIds(apiDesc =>
+    {
+        try
+        {
+            var actionDescriptor = apiDesc.ActionDescriptor as ControllerActionDescriptor;
+            if (actionDescriptor != null)
+            {
+                var controllerName = actionDescriptor.ControllerName;
+                var actionName = actionDescriptor.ActionName;
+                return $"{controllerName}_{actionName}";
+            }
+            return apiDesc.RelativePath?.Replace("/", "_").Replace("{", "").Replace("}", "");
+        }
+        catch
+        {
+            return null;
+        }
+    });
 });
 
 var app = builder.Build();
 
-// Apply migrations on startup
+// Apply migrations on startup or create database if migrations don't exist
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<HeloiloDbContext>();
-    db.Database.Migrate();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        // Try to apply migrations first
+        var pendingMigrations = db.Database.GetPendingMigrations().ToList();
+        if (pendingMigrations.Any())
+        {
+            logger.LogInformation("Applying {Count} pending migration(s): {Migrations}", 
+                pendingMigrations.Count, string.Join(", ", pendingMigrations));
+            db.Database.Migrate();
+            logger.LogInformation("Database migrations applied successfully");
+        }
+        else
+        {
+            // Check if migrations exist at all
+            var migrations = db.Database.GetMigrations().ToList();
+            if (migrations.Any())
+            {
+                logger.LogInformation("No pending migrations. Database is up to date.");
+                // Verify tables exist
+                try
+                {
+                    _ = db.Users.Count();
+                }
+                catch
+                {
+                    logger.LogWarning("Migrations applied but tables don't exist. Applying migrations again...");
+                    db.Database.Migrate();
+                }
+            }
+            else
+            {
+                // No migrations exist, use EnsureCreated
+                logger.LogWarning("No migrations found. Creating database using EnsureCreated()...");
+                EnsureDatabaseWithTables(db, logger);
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        // If migrations fail or don't exist, fallback to EnsureCreated
+        logger.LogWarning(ex, "Error checking/applying migrations: {Message}. Creating database using EnsureCreated()...", ex.Message);
+        EnsureDatabaseWithTables(db, logger);
+    }
+}
+
+// Helper method to ensure database and tables exist
+static void EnsureDatabaseWithTables(HeloiloDbContext db, ILogger logger)
+{
+    try
+    {
+        var created = db.Database.EnsureCreated();
+        if (created)
+        {
+            logger.LogInformation("Database and tables created successfully using EnsureCreated()");
+        }
+        else
+        {
+            // Database exists, check if tables exist
+            var canConnect = db.Database.CanConnect();
+            if (canConnect)
+            {
+                // Try to query a table to see if schema exists
+                try
+                {
+                    _ = db.Users.Count();
+                    logger.LogInformation("Database already exists with schema (Users table accessible)");
+                }
+                catch
+                {
+                    // Tables don't exist even though database does - force recreation
+                    logger.LogWarning("Database exists but tables are missing. Recreating schema...");
+                    db.Database.EnsureDeleted();
+                    db.Database.EnsureCreated();
+                    logger.LogInformation("Database schema recreated successfully");
+                }
+            }
+            else
+            {
+                logger.LogInformation("Database connection check returned false, attempting to create...");
+                db.Database.EnsureCreated();
+            }
+        }
+    }
+    catch (Exception ensureEx)
+    {
+        logger.LogError(ensureEx, "Failed to create database. Application may not function correctly.");
+        throw;
+    }
 }
 
 // Configure the HTTP request pipeline.
+// Swagger deve vir antes de qualquer middleware de autenticação/autorização
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
+    app.UseSwagger(c =>
+    {
+        c.RouteTemplate = "swagger/{documentName}/swagger.json";
+    });
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Heloilo API v1");

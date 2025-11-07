@@ -441,6 +441,20 @@ public class WishService : IWishService
         return true;
     }
 
+    public async Task<byte[]?> GetWishImageAsync(long wishId, long userId)
+    {
+        var wish = await _context.Wishes
+            .FirstOrDefaultAsync(w => w.Id == wishId && w.DeletedAt == null);
+
+        if (wish == null) throw new KeyNotFoundException("Desejo não encontrado");
+
+        var relationship = await GetRelationshipAsync(userId);
+        if (relationship == null || wish.RelationshipId != relationship.Id)
+            throw new UnauthorizedAccessException("Acesso negado");
+
+        return wish.ImageBlob;
+    }
+
     private async Task<Relationship?> GetRelationshipAsync(long userId)
     {
         return await _context.Relationships

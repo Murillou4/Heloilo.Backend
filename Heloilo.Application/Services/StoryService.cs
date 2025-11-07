@@ -170,6 +170,20 @@ public class StoryService : IStoryService
         return true;
     }
 
+    public async Task<byte[]?> GetStoryPageImageAsync(long pageId, long userId)
+    {
+        var page = await _context.StoryPages
+            .FirstOrDefaultAsync(p => p.Id == pageId && p.DeletedAt == null);
+
+        if (page == null) throw new KeyNotFoundException("Página não encontrada");
+
+        var relationship = await GetRelationshipAsync(userId);
+        if (relationship == null || page.RelationshipId != relationship.Id)
+            throw new UnauthorizedAccessException("Acesso negado");
+
+        return page.ImageBlob;
+    }
+
     private async Task<Relationship?> GetRelationshipAsync(long userId)
     {
         return await _context.Relationships

@@ -21,8 +21,9 @@ public class RateLimitingMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Pular rate limiting para health checks
-        if (context.Request.Path.StartsWithSegments("/health"))
+        // Pular rate limiting para health checks e Swagger
+        if (context.Request.Path.StartsWithSegments("/health") ||
+            context.Request.Path.StartsWithSegments("/swagger"))
         {
             await _next(context);
             return;

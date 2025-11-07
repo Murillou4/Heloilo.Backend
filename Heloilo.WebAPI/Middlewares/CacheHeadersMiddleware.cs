@@ -15,6 +15,12 @@ public class CacheHeadersMiddleware
     {
         await _next(context);
 
+        // Se a resposta já foi iniciada (ex: erro ocorreu), não podemos modificar headers
+        if (context.Response.HasStarted)
+        {
+            return;
+        }
+
         // Só adicionar cache headers para requisições GET bem-sucedidas
         if (context.Request.Method == "GET" && context.Response.StatusCode == 200)
         {

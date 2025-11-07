@@ -27,9 +27,10 @@ public class RequestSizeValidationMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // Pular validação para health checks e hubs SignalR
+        // Pular validação para health checks, hubs SignalR e Swagger
         if (context.Request.Path.StartsWithSegments("/health") ||
-            context.Request.Path.StartsWithSegments("/hubs"))
+            context.Request.Path.StartsWithSegments("/hubs") ||
+            context.Request.Path.StartsWithSegments("/swagger"))
         {
             await _next(context);
             return;

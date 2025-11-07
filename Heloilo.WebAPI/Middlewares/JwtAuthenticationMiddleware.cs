@@ -19,6 +19,13 @@ public class JwtAuthenticationMiddleware
 
     public async Task InvokeAsync(HttpContext context, IAuthService authService)
     {
+        // Pular processamento JWT para endpoints do Swagger
+        if (context.Request.Path.StartsWithSegments("/swagger"))
+        {
+            await _next(context);
+            return;
+        }
+
         var token = ExtractTokenFromHeader(context);
 
         if (!string.IsNullOrEmpty(token))

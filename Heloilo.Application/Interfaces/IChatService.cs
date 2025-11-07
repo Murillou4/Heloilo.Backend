@@ -15,5 +15,6 @@ public interface IChatService
     Task<bool> MarkMultipleAsReadAsync(long userId, List<long> messageIds);
     Task SetTypingIndicatorAsync(long userId, bool isTyping);
     Task<bool> GetPartnerTypingStatusAsync(long userId);
+    Task<byte[]?> GetMessageMediaAsync(long mediaId, long userId);
 }
 

@@ -42,7 +42,7 @@ public class ChatMessagesController : BaseController
     }
 
     [HttpPost]
-    public async Task<ActionResult> SendMessage([FromForm] SendMessageDto dto, [FromForm] IFormFile? media)
+    public async Task<ActionResult> SendMessage([FromForm] SendMessageDto dto, IFormFile? media)
     {
         try
         {
