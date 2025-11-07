@@ -155,7 +155,10 @@ public class RelationshipService : IRelationshipService
         invitation.Status = InvitationStatus.Accepted;
         invitation.RespondedAt = DateTime.UtcNow;
 
-        // Criar registros de initial setup
+        // Salvar o relacionamento primeiro para obter o ID gerado
+        await _context.SaveChangesAsync();
+
+        // Criar registros de initial setup com o ID do relacionamento já gerado
         var setup1 = new InitialSetup
         {
             RelationshipId = relationship.Id,
