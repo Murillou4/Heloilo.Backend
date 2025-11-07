@@ -56,6 +56,9 @@ public class HeloiloDbContext : DbContext
     // Shared content entities
     public DbSet<SharedContent> SharedContents { get; set; } = null!;
 
+    // Reminder entities
+    public DbSet<Reminder> Reminders { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

@@ -2,6 +2,7 @@ using Heloilo.Application.DTOs.User;
 using Heloilo.Application.Helpers;
 using Heloilo.Application.Interfaces;
 using Heloilo.Domain.Models.Entities;
+using Heloilo.Domain.Models.Enums;
 using Heloilo.Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -150,6 +151,121 @@ public class UserService : IUserService
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
         await _context.SaveChangesAsync();
 
+        return true;
+    }
+
+    public async Task<bool> RequestAccountDeletionAsync(long userId)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null);
+
+        if (user == null)
+        {
+            throw new KeyNotFoundException("Usuário não encontrado");
+        }
+
+        // Verificar se já existe uma solicitação pendente
+        if (user.DeletionRequestedAt.HasValue && user.DeletionScheduledAt.HasValue && user.DeletionScheduledAt.Value > DateTime.UtcNow)
+        {
+            throw new InvalidOperationException("Já existe uma solicitação de exclusão pendente");
+        }
+
+        // Definir período de graça de 30 dias
+        user.DeletionRequestedAt = DateTime.UtcNow;
+        user.DeletionScheduledAt = DateTime.UtcNow.AddDays(30);
+
+        // Notificar parceiro se houver relacionamento ativo
+        var relationship = await _context.Relationships
+            .Include(r => r.User1)
+            .Include(r => r.User2)
+            .FirstOrDefaultAsync(r =>
+                (r.User1Id == userId || r.User2Id == userId) &&
+                r.IsActive && r.DeletedAt == null);
+
+        if (relationship != null)
+        {
+            var partnerId = relationship.User1Id == userId ? relationship.User2Id : relationship.User1Id;
+            var partner = await _context.Users.FindAsync(partnerId);
+            
+            if (partner != null)
+            {
+                // Criar notificação para o parceiro
+                var notification = new Notification
+                {
+                    UserId = partnerId,
+                    RelationshipId = relationship.Id,
+                    Title = "Solicitação de Exclusão de Conta",
+                    Content = $"{user.Name} solicitou a exclusão da conta. A conta será excluída em {user.DeletionScheduledAt.Value:dd/MM/yyyy}.",
+                    NotificationType = NotificationType.Anniversary,
+                    IsRead = false,
+                    SentAt = DateTime.UtcNow
+                };
+
+                _context.Notifications.Add(notification);
+            }
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> CancelAccountDeletionAsync(long userId)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null);
+
+        if (user == null)
+        {
+            throw new KeyNotFoundException("Usuário não encontrado");
+        }
+
+        if (!user.DeletionRequestedAt.HasValue)
+        {
+            throw new InvalidOperationException("Não há solicitação de exclusão pendente");
+        }
+
+        // Cancelar exclusão
+        user.DeletionRequestedAt = null;
+        user.DeletionScheduledAt = null;
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteAccountAsync(long userId)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == userId && u.DeletedAt == null);
+
+        if (user == null)
+        {
+            throw new KeyNotFoundException("Usuário não encontrado");
+        }
+
+        // Verificar se o período de graça já passou ou se é uma exclusão imediata
+        if (user.DeletionScheduledAt.HasValue && user.DeletionScheduledAt.Value > DateTime.UtcNow)
+        {
+            throw new InvalidOperationException($"A exclusão só pode ser realizada após {user.DeletionScheduledAt.Value:dd/MM/yyyy}");
+        }
+
+        // Soft delete
+        user.DeletedAt = DateTime.UtcNow;
+        user.IsActive = false;
+        user.DeletionRequestedAt = null;
+        user.DeletionScheduledAt = null;
+
+        // Desativar relacionamentos ativos
+        var relationships = await _context.Relationships
+            .Where(r => (r.User1Id == userId || r.User2Id == userId) && r.IsActive && r.DeletedAt == null)
+            .ToListAsync();
+
+        foreach (var relationship in relationships)
+        {
+            relationship.IsActive = false;
+            relationship.DeletedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
         return true;
     }
 

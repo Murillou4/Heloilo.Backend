@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Heloilo.Backend")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4f845707f4f133b6b8e17a01dd94db8059f41272")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+fe2eccb0d73d6adbba02c5d3c393eb8ef6fe9a5a")]
 [assembly: System.Reflection.AssemblyProductAttribute("Heloilo.Backend")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Heloilo.Backend")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -33,7 +33,7 @@ public abstract class BaseController : ControllerBase
         if (!ModelState.IsValid)
         {
             var errors = ModelState
-                .Where(x => x.Value?.Errors.Count > 0)
+                .Where(x => x.Value != null && x.Value.Errors.Count > 0)
                 .SelectMany(x => x.Value!.Errors.Select(e => new { Field = x.Key, Message = e.ErrorMessage }))
                 .ToList();
 

@@ -53,6 +53,18 @@ public static class ServiceCollectionExtensions
 
         // Shared content services
         services.AddScoped<ISharedContentService, SharedContentService>();
+
+        // Data export services
+        services.AddScoped<IDataExportService, DataExportService>();
+
+        // Analytics services
+        services.AddScoped<IAnalyticsService, AnalyticsService>();
+
+        // Reminder services
+        services.AddScoped<IReminderService, ReminderService>();
+
+        // Backup services
+        services.AddScoped<IBackupService, BackupService>();
         
         return services;
     }

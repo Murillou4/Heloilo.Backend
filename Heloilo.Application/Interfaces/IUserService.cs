@@ -12,5 +12,8 @@ public interface IUserService
     Task<bool> UploadProfilePhotoAsync(long userId, IFormFile file);
     Task<byte[]?> GetProfilePhotoAsync(long userId);
     Task<bool> UpdatePasswordAsync(long userId, UpdatePasswordDto dto);
+    Task<bool> RequestAccountDeletionAsync(long userId);
+    Task<bool> CancelAccountDeletionAsync(long userId);
+    Task<bool> DeleteAccountAsync(long userId);
 }
 

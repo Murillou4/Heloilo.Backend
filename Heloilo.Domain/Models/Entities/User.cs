@@ -19,6 +19,10 @@ public class User : BaseEntity, ISoftDeletable
 
     public DateTime? DeletedAt { get; set; }
 
+    public DateTime? DeletionRequestedAt { get; set; }
+
+    public DateTime? DeletionScheduledAt { get; set; }
+
     // Navigation properties
     public virtual ICollection<Relationship> RelationshipsAsUser1 { get; set; } = new List<Relationship>();
     public virtual ICollection<Relationship> RelationshipsAsUser2 { get; set; } = new List<Relationship>();

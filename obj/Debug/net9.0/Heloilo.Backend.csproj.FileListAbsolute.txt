@@ -185,3 +185,5 @@ E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\bin\Debug\net9.
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\bin\Debug\net9.0\Heloilo.Infrastructure\bin\Debug\net9.0\Heloilo.Infrastructure.deps.json
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\bin\Debug\net9.0\Heloilo.Infrastructure\bin\Debug\net9.0\Heloilo.Infrastructure.runtimeconfig.json
 E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\bin\Debug\net9.0\Heloilo.Infrastructure\obj\Debug\net9.0\Heloilo.Infrastructure.sourcelink.json
+E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\bin\Debug\net9.0\Microsoft.AspNetCore.Mvc.Versioning.dll
+E:\Desktop\Development\Projetos pessoais\Heloilo\Heloilo.Backend\bin\Debug\net9.0\Microsoft.AspNetCore.Mvc.Versioning.ApiExplorer.dll

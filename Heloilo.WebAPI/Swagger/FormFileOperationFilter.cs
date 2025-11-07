@@ -134,7 +134,7 @@ public class FormFileOperationFilter : IOperationFilter
                     Type underlyingType;
                     if (IsNullableValueType(propType))
                     {
-                        underlyingType = Nullable.GetUnderlyingType(propType)!;
+                        underlyingType = Nullable.GetUnderlyingType(propType) ?? propType;
                         isNullable = true;
                     }
                     else

@@ -38,6 +38,12 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.ProfilePhotoBlob)
             .HasColumnType("BLOB");
 
+        builder.Property(u => u.DeletionRequestedAt)
+            .IsRequired(false);
+
+        builder.Property(u => u.DeletionScheduledAt)
+            .IsRequired(false);
+
         // Indexes
         builder.HasIndex(u => u.Email)
             .IsUnique();

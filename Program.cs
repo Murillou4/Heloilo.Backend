@@ -46,6 +46,21 @@ Heloilo.Application.Extensions.ServiceCollectionExtensions.AddApplicationService
 // Add SignalR
 builder.Services.AddSignalR();
 
+// Add API Versioning
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new Microsoft.AspNetCore.Mvc.ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    // ApiVersionReader padrão já suporta query string e header
+});
+
+builder.Services.AddVersionedApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
 // Add Controllers with JSON options
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -182,10 +197,11 @@ static string GetSafeSchemaId(Type type)
 
 builder.Services.AddSwaggerGen(c =>
 {
+    // Configurar para suportar múltiplas versões usando factory
     c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
         Title = "Heloilo API",
-        Version = "v1",
+        Version = "1.0",
         Description = "API RESTful para o sistema Heloilo - Aplicativo para casais. " +
                       "Documentação completa dos endpoints, autenticação JWT e exemplos de uso.",
         Contact = new Microsoft.OpenApi.Models.OpenApiContact
@@ -417,7 +433,7 @@ if (app.Environment.IsDevelopment())
     });
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Heloilo API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Heloilo API V1");
         c.RoutePrefix = string.Empty;
     });
 }

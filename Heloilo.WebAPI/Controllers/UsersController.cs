@@ -3,20 +3,24 @@ using Heloilo.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using API;
+using System.Text;
 
 namespace Heloilo.WebAPI.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/v{version:apiVersion}/[controller]")]
+[ApiVersion("1.0")]
 [Authorize]
 public class UsersController : BaseController
 {
     private readonly IUserService _userService;
+    private readonly IDataExportService _dataExportService;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(IUserService userService, ILogger<UsersController> logger)
+    public UsersController(IUserService userService, IDataExportService dataExportService, ILogger<UsersController> logger)
     {
         _userService = userService;
+        _dataExportService = dataExportService;
         _logger = logger;
     }
 
@@ -173,6 +177,113 @@ public class UsersController : BaseController
         {
             _logger.LogError(ex, "Erro ao atualizar senha");
             return RouteMessages.InternalError("Erro ao atualizar senha", "Erro interno");
+        }
+    }
+
+    [HttpGet("me/export")]
+    public async Task<ActionResult> ExportData([FromQuery] string? format = "json")
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            
+            if (format?.ToLower() == "pdf")
+            {
+                var pdfData = await _dataExportService.ExportUserDataAsPdfAsync(userId);
+                return File(pdfData, "application/pdf", $"heloilo-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.pdf");
+            }
+            else
+            {
+                var jsonData = await _dataExportService.ExportUserDataAsJsonAsync(userId);
+                var jsonBytes = Encoding.UTF8.GetBytes(jsonData);
+                return File(jsonBytes, "application/json", $"heloilo-export-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json");
+            }
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.NotFound(ex.Message, "Usuário não encontrado");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao exportar dados do usuário");
+            return RouteMessages.InternalError("Erro ao exportar dados", "Erro interno");
+        }
+    }
+
+    [HttpPost("me/delete-request")]
+    public async Task<ActionResult> RequestAccountDeletion()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _userService.RequestAccountDeletionAsync(userId);
+            var data = new Dictionary<string, object>
+            {
+                { "message", "Solicitação de exclusão criada. Sua conta será excluída em 30 dias. Você pode cancelar a qualquer momento antes dessa data." },
+                { "deletionScheduledAt", DateTime.UtcNow.AddDays(30) }
+            };
+            return RouteMessages.Ok("Solicitação de exclusão criada com sucesso", "Exclusão agendada", data);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.NotFound(ex.Message, "Usuário não encontrado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return RouteMessages.BadRequest(ex.Message, "Operação inválida");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao solicitar exclusão de conta");
+            return RouteMessages.InternalError("Erro ao solicitar exclusão", "Erro interno");
+        }
+    }
+
+    [HttpPost("me/cancel-deletion")]
+    public async Task<ActionResult> CancelAccountDeletion()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _userService.CancelAccountDeletionAsync(userId);
+            return RouteMessages.Ok("Exclusão de conta cancelada com sucesso", "Exclusão cancelada");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.NotFound(ex.Message, "Usuário não encontrado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return RouteMessages.BadRequest(ex.Message, "Operação inválida");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao cancelar exclusão de conta");
+            return RouteMessages.InternalError("Erro ao cancelar exclusão", "Erro interno");
+        }
+    }
+
+    [HttpDelete("me")]
+    public async Task<ActionResult> DeleteAccount()
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _userService.DeleteAccountAsync(userId);
+            return RouteMessages.Ok("Conta excluída com sucesso", "Conta excluída");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.NotFound(ex.Message, "Usuário não encontrado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return RouteMessages.BadRequest(ex.Message, "Operação inválida");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao excluir conta");
+            return RouteMessages.InternalError("Erro ao excluir conta", "Erro interno");
         }
     }
 
