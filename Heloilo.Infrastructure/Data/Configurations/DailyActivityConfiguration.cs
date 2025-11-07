@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Heloilo.Domain.Models.Entities;
+using Heloilo.Domain.Models.Enums;
 
 namespace Heloilo.Infrastructure.Data.Configurations;
 
@@ -23,10 +24,20 @@ public class DailyActivityConfiguration : IEntityTypeConfiguration<DailyActivity
         builder.Property(da => da.ActivityDate)
             .IsRequired();
 
+        builder.Property(da => da.RecurrenceType)
+            .HasConversion<int>()
+            .HasDefaultValue(RecurrenceType.None);
+
+        builder.Property(da => da.RecurrenceParentId);
+
+        builder.Property(da => da.RecurrenceEndDate);
+
         // Indexes
         builder.HasIndex(da => new { da.UserId, da.ActivityDate });
         builder.HasIndex(da => new { da.UserId, da.IsCompleted });
         builder.HasIndex(da => da.DeletedAt);
+        builder.HasIndex(da => da.RecurrenceParentId);
+        builder.HasIndex(da => da.RecurrenceType);
 
         // Relationships
         builder.HasOne(da => da.User)

@@ -54,7 +54,7 @@ public abstract class BaseController : ControllerBase
     }
 
     /// <summary>
-    /// Valida e normaliza parâmetros de paginação
+    /// Valida e normaliza parâmetros de paginação com mensagens de erro mais descritivas
     /// </summary>
     /// <param name="page">Número da página (default: 1)</param>
     /// <param name="pageSize">Tamanho da página (default: 20)</param>
@@ -63,7 +63,76 @@ public abstract class BaseController : ControllerBase
     /// <returns>Tupla com (page, pageSize) validados e normalizados</returns>
     protected (int Page, int PageSize) ValidateAndNormalizePagination(int page = 1, int pageSize = 20, int defaultPageSize = 20, int maxPageSize = 100)
     {
-        return ValidationHelper.ValidatePagination(page, pageSize, defaultPageSize, maxPageSize);
+        var originalPage = page;
+        var originalPageSize = pageSize;
+
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        if (pageSize < 1)
+        {
+            pageSize = defaultPageSize;
+        }
+
+        if (pageSize > maxPageSize)
+        {
+            pageSize = maxPageSize;
+        }
+
+        return (page, pageSize);
+    }
+
+    /// <summary>
+    /// Valida um range de datas
+    /// </summary>
+    /// <param name="startDate">Data inicial</param>
+    /// <param name="endDate">Data final</param>
+    /// <returns>ActionResult com erro se inválido, null se válido</returns>
+    protected ActionResult? ValidateDateRange(DateOnly? startDate, DateOnly? endDate)
+    {
+        var (isValid, errorMessage) = FilterHelper.ValidateDateRange(startDate, endDate);
+        if (!isValid)
+        {
+            return RouteMessages.BadRequest(errorMessage ?? "Erro na validação de datas", "Erro de validação");
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Valida um filtro de status
+    /// </summary>
+    /// <typeparam name="T">Tipo do enum de status</typeparam>
+    /// <param name="status">Status a validar</param>
+    /// <param name="allowedStatuses">Lista de status permitidos</param>
+    /// <returns>ActionResult com erro se inválido, null se válido</returns>
+    protected ActionResult? ValidateStatusFilter<T>(T? status, IEnumerable<T> allowedStatuses) where T : struct, Enum
+    {
+        var (isValid, errorMessage) = FilterHelper.ValidateStatus(status, allowedStatuses);
+        if (!isValid)
+        {
+            return RouteMessages.BadRequest(errorMessage ?? "Status inválido", "Erro de validação");
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Valida múltiplos filtros combinados (AND/OR)
+    /// </summary>
+    /// <param name="filters">Dicionário de filtros (nome do filtro, valor)</param>
+    /// <param name="logic">Lógica de combinação: 'AND' ou 'OR' (default: 'AND')</param>
+    /// <returns>ActionResult com erro se inválido, null se válido</returns>
+    protected ActionResult? ValidateCombinedFilters(Dictionary<string, object?> filters, string logic = "AND")
+    {
+        if (!FilterHelper.ValidateCombinedFilters(filters, logic))
+        {
+            return RouteMessages.BadRequest(
+                $"Filtros inválidos com lógica {logic}. Verifique os parâmetros fornecidos.",
+                "Erro de validação"
+            );
+        }
+        return null;
     }
 }
 

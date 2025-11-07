@@ -1,4 +1,5 @@
 using Heloilo.Domain.Models.Common;
+using Heloilo.Domain.Models.Enums;
 
 namespace Heloilo.Domain.Models.Entities;
 
@@ -15,6 +16,12 @@ public class DailyActivity : BaseEntity, ISoftDeletable
     public int? ReminderMinutes { get; set; }
 
     public DateOnly ActivityDate { get; set; }
+
+    public RecurrenceType RecurrenceType { get; set; } = RecurrenceType.None;
+
+    public long? RecurrenceParentId { get; set; }
+
+    public DateOnly? RecurrenceEndDate { get; set; }
 
     public DateTime? DeletedAt { get; set; }
 

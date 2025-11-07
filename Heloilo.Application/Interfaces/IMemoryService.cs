@@ -15,5 +15,7 @@ public interface IMemoryService
     Task<bool> DeleteMediaAsync(long memoryId, long mediaId, long userId);
     Task<List<string>> GetTagsAsync(long userId);
     Task<byte[]?> GetMemoryMediaAsync(long mediaId, long userId);
+    Task<Dictionary<string, object>> GetMemoryStatsAsync(long userId);
+    Task<Dictionary<string, object>> GetMemoryTimelineAsync(long userId, DateOnly? startDate = null, DateOnly? endDate = null);
 }
 

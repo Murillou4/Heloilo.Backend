@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Heloilo.Domain.Models.Entities;
+using Heloilo.Domain.Models.Enums;
 
 namespace Heloilo.Infrastructure.Data.Configurations;
 
@@ -23,6 +24,12 @@ public class WishConfiguration : IEntityTypeConfiguration<Wish>
         builder.Property(w => w.ImportanceLevel)
             .HasDefaultValue(3);
 
+        builder.Property(w => w.Status)
+            .HasConversion<int>()
+            .HasDefaultValue(WishStatus.Pending);
+
+        builder.Property(w => w.FulfilledAt);
+
         builder.Property(w => w.ImageBlob)
             .HasColumnType("BLOB");
 
@@ -38,6 +45,8 @@ public class WishConfiguration : IEntityTypeConfiguration<Wish>
         builder.HasIndex(w => new { w.UserId, w.CreatedAt });
         builder.HasIndex(w => w.CategoryId);
         builder.HasIndex(w => w.ImportanceLevel);
+        builder.HasIndex(w => w.Status);
+        builder.HasIndex(w => new { w.RelationshipId, w.Status, w.DeletedAt });
 
         // Relationships
         builder.HasOne(w => w.User)

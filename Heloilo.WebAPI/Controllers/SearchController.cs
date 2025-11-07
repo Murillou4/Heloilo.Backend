@@ -58,7 +58,7 @@ public class SearchController : BaseController
 
             if (searchAll || type == "wishes")
             {
-                var wishes = await _wishService.GetWishesAsync(userId, null, query, null, null, page, pageSize);
+                var wishes = await _wishService.GetWishesAsync(userId, null, query, null, null, null, page, pageSize);
                 results["wishes"] = new
                 {
                     items = wishes.Items,
@@ -95,6 +95,7 @@ public class SearchController : BaseController
         }
     }
 }
+
 
 
 

@@ -24,7 +24,7 @@ public class WishService : IWishService
         _notificationService = notificationService;
     }
 
-    public async Task<PagedResult<WishDto>> GetWishesAsync(long userId, long? categoryId = null, string? search = null, string? sortBy = null, string? sortOrder = null, int page = 1, int pageSize = 20)
+    public async Task<PagedResult<WishDto>> GetWishesAsync(long userId, long? categoryId = null, string? search = null, string? sortBy = null, string? sortOrder = null, WishStatus? status = null, int page = 1, int pageSize = 20)
     {
         // Validar paginação
         if (page < 1) page = 1;
@@ -51,6 +51,11 @@ public class WishService : IWishService
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = query.Where(w => w.Title.Contains(search));
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(w => w.Status == status.Value);
         }
 
         // Ordenação
@@ -479,9 +484,72 @@ public class WishService : IWishService
             LinkUrl = wish.LinkUrl,
             HasImage = wish.ImageBlob != null && wish.ImageBlob.Length > 0,
             ImportanceLevel = wish.ImportanceLevel,
+            Status = wish.Status,
+            FulfilledAt = wish.FulfilledAt,
             CommentCount = wish.Comments.Count(c => c.DeletedAt == null),
             CreatedAt = wish.CreatedAt
         };
+    }
+
+    public async Task<PagedResult<WishDto>> GetWishesByPriorityAsync(long userId, int? minImportanceLevel = null, int page = 1, int pageSize = 20)
+    {
+        (page, pageSize) = ValidationHelper.ValidatePagination(page, pageSize, defaultPageSize: 20, maxPageSize: 100);
+
+        var relationship = await GetRelationshipAsync(userId);
+        if (relationship == null) throw new KeyNotFoundException("Relacionamento não encontrado");
+
+        var query = _context.Wishes
+            .Include(w => w.User)
+            .Include(w => w.Category)
+            .Include(w => w.Comments)
+            .Where(w => w.RelationshipId == relationship.Id && w.DeletedAt == null && w.Status == WishStatus.Pending);
+
+        if (minImportanceLevel.HasValue)
+        {
+            query = query.Where(w => w.ImportanceLevel >= minImportanceLevel.Value);
+        }
+
+        query = query.OrderByDescending(w => w.ImportanceLevel).ThenByDescending(w => w.CreatedAt);
+
+        var totalItems = await query.CountAsync();
+
+        var wishes = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new PagedResult<WishDto>
+        {
+            Items = wishes.Select(MapToDto).ToList(),
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems
+        };
+    }
+
+    public async Task<WishDto> FulfillWishAsync(long wishId, long userId)
+    {
+        var wish = await _context.Wishes
+            .FirstOrDefaultAsync(w => w.Id == wishId && w.DeletedAt == null);
+
+        if (wish == null) throw new KeyNotFoundException("Desejo não encontrado");
+
+        var relationship = await GetRelationshipAsync(userId);
+        if (relationship == null || wish.RelationshipId != relationship.Id)
+            throw new UnauthorizedAccessException("Acesso negado");
+
+        if (wish.Status == WishStatus.Fulfilled)
+        {
+            throw new InvalidOperationException("Desejo já foi realizado");
+        }
+
+        wish.Status = WishStatus.Fulfilled;
+        wish.FulfilledAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Desejo marcado como realizado: WishId={WishId}, UserId={UserId}", wishId, userId);
+
+        return await GetWishByIdAsync(wishId, userId);
     }
 }
 

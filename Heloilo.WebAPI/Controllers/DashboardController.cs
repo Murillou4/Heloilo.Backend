@@ -61,7 +61,7 @@ public class DashboardController : BaseController
             var tomorrow = today.AddDays(1);
             
             var memoriesTask = _memoryService.GetMemoriesAsync(userId, null, null, null, null, null, null, 1, 1);
-            var wishesTask = _wishService.GetWishesAsync(userId, null, null, null, null, 1, 1);
+            var wishesTask = _wishService.GetWishesAsync(userId, null, null, null, null, null, 1, 1);
             var todayActivitiesTask = _activityService.GetActivitiesAsync(userId, today, null, null, null, null, null, null, 1, 100);
             var upcomingActivitiesTask = _activityService.GetActivitiesAsync(userId, null, tomorrow, null, false, null, null, null, 1, 5);
             var messagesTask = _chatService.GetMessagesAsync(userId, null, null, null, null, null, 1, 1);

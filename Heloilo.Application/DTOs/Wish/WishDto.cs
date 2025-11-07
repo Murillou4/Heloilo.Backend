@@ -1,3 +1,5 @@
+using Heloilo.Domain.Models.Enums;
+
 namespace Heloilo.Application.DTOs.Wish;
 
 public class WishDto
@@ -14,6 +16,8 @@ public class WishDto
     public string? LinkUrl { get; set; }
     public bool HasImage { get; set; }
     public int ImportanceLevel { get; set; }
+    public WishStatus Status { get; set; }
+    public DateTime? FulfilledAt { get; set; }
     public int CommentCount { get; set; }
     public DateTime CreatedAt { get; set; }
 }

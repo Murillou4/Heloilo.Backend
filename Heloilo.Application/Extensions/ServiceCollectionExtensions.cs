@@ -10,6 +10,7 @@ public static class ServiceCollectionExtensions
     {
         // Auth services
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IEmailService, EmailService>();
 
         // User services
         services.AddScoped<IUserService, UserService>();
@@ -46,6 +47,12 @@ public static class ServiceCollectionExtensions
 
         // Media services
         services.AddScoped<IMediaService, MediaService>();
+
+        // Favorite services
+        services.AddScoped<IFavoriteService, FavoriteService>();
+
+        // Shared content services
+        services.AddScoped<ISharedContentService, SharedContentService>();
         
         return services;
     }

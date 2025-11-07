@@ -3,6 +3,7 @@ using Heloilo.Application.Helpers;
 using Heloilo.Application.Interfaces;
 using Heloilo.Domain.Models.Common;
 using Heloilo.Domain.Models.Entities;
+using Heloilo.Domain.Models.Enums;
 using Heloilo.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -209,6 +210,89 @@ public class ActivityService : IActivityService
             ReminderMinutes = activity.ReminderMinutes,
             ActivityDate = activity.ActivityDate,
             CreatedAt = activity.CreatedAt
+        };
+    }
+
+    public async Task<PagedResult<DailyActivityDto>> GetRecurringActivitiesAsync(long userId, int page = 1, int pageSize = 20)
+    {
+        (page, pageSize) = ValidationHelper.ValidatePagination(page, pageSize, defaultPageSize: 20, maxPageSize: 100);
+
+        var query = _context.DailyActivities
+            .Include(a => a.User)
+            .Where(a => a.UserId == userId && 
+                       a.DeletedAt == null && 
+                       a.RecurrenceType != RecurrenceType.None &&
+                       (a.RecurrenceEndDate == null || a.RecurrenceEndDate >= DateOnly.FromDateTime(DateTime.Today)));
+
+        query = query.OrderBy(a => a.ActivityDate).ThenBy(a => a.CreatedAt);
+
+        var totalItems = await query.CountAsync();
+
+        var activities = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new PagedResult<DailyActivityDto>
+        {
+            Items = activities.Select(MapToDto).ToList(),
+            Page = page,
+            PageSize = pageSize,
+            TotalItems = totalItems
+        };
+    }
+
+    public async Task<DailyActivityDto> CreateRecurrenceAsync(long activityId, long userId, RecurrenceType recurrenceType, DateOnly? endDate = null)
+    {
+        var parentActivity = await _context.DailyActivities
+            .FirstOrDefaultAsync(a => a.Id == activityId && a.DeletedAt == null);
+
+        if (parentActivity == null) throw new KeyNotFoundException("Atividade não encontrada");
+
+        if (parentActivity.UserId != userId)
+            throw new UnauthorizedAccessException("Acesso negado");
+
+        // Atualizar atividade pai com recorrência
+        parentActivity.RecurrenceType = recurrenceType;
+        parentActivity.RecurrenceEndDate = endDate;
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Recorrência criada para atividade: ActivityId={ActivityId}, RecurrenceType={RecurrenceType}", 
+            activityId, recurrenceType);
+
+        return await GetActivityByIdAsync(activityId, userId);
+    }
+
+    public async Task<Dictionary<string, object>> GetActivitiesCalendarAsync(long userId, DateOnly? startDate = null, DateOnly? endDate = null)
+    {
+        var start = startDate ?? DateOnly.FromDateTime(DateTime.Today);
+        var end = endDate ?? start.AddDays(30);
+
+        var activities = await _context.DailyActivities
+            .Include(a => a.User)
+            .Where(a => a.UserId == userId && 
+                       a.DeletedAt == null &&
+                       a.ActivityDate >= start &&
+                       a.ActivityDate <= end)
+            .OrderBy(a => a.ActivityDate)
+            .ThenBy(a => a.CreatedAt)
+            .ToListAsync();
+
+        // Agrupar por data
+        var calendar = activities
+            .GroupBy(a => a.ActivityDate)
+            .ToDictionary(
+                g => g.Key.ToString("yyyy-MM-dd"),
+                g => g.Select(MapToDto).ToList()
+            );
+
+        return new Dictionary<string, object>
+        {
+            { "startDate", start.ToString("yyyy-MM-dd") },
+            { "endDate", end.ToString("yyyy-MM-dd") },
+            { "activities", calendar },
+            { "totalDays", calendar.Count },
+            { "totalActivities", activities.Count }
         };
     }
 }

@@ -1,5 +1,6 @@
 using Heloilo.Application.DTOs.Wish;
 using Heloilo.Application.Interfaces;
+using Heloilo.Domain.Models.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using API;
@@ -9,9 +10,10 @@ namespace Heloilo.WebAPI.Controllers;
 [ApiController]
 [Route("[controller]")]
 [Authorize]
-public class WishesController(IWishService wishService, ILogger<WishesController> logger) : BaseController
+public class WishesController(IWishService wishService, IFavoriteService favoriteService, ILogger<WishesController> logger) : BaseController
 {
     private readonly IWishService _wishService = wishService;
+    private readonly IFavoriteService _favoriteService = favoriteService;
     private readonly ILogger<WishesController> _logger = logger;
 
     /// <summary>
@@ -21,6 +23,7 @@ public class WishesController(IWishService wishService, ILogger<WishesController
     /// <param name="search">Termo de busca para filtrar por título (opcional)</param>
     /// <param name="sortBy">Campo para ordenação: 'createdAt', 'importanceLevel' (opcional)</param>
     /// <param name="sortOrder">Ordem: 'asc' ou 'desc' (opcional)</param>
+    /// <param name="status">Status do desejo: Pending, Fulfilled, Cancelled (opcional)</param>
     /// <param name="page">Número da página (default: 1)</param>
     /// <param name="pageSize">Tamanho da página (default: 20, máximo: 100)</param>
     /// <returns>Lista paginada de desejos</returns>
@@ -28,12 +31,12 @@ public class WishesController(IWishService wishService, ILogger<WishesController
     /// <response code="401">Não autenticado</response>
     /// <response code="500">Erro interno do servidor</response>
     [HttpGet]
-    public async Task<ActionResult> GetWishes([FromQuery] long? categoryId, [FromQuery] string? search, [FromQuery] string? sortBy, [FromQuery] string? sortOrder, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult> GetWishes([FromQuery] long? categoryId, [FromQuery] string? search, [FromQuery] string? sortBy, [FromQuery] string? sortOrder, [FromQuery] WishStatus? status, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         try
         {
             var userId = GetCurrentUserId();
-            var wishes = await _wishService.GetWishesAsync(userId, categoryId, search, sortBy, sortOrder, page, pageSize);
+            var wishes = await _wishService.GetWishesAsync(userId, categoryId, search, sortBy, sortOrder, status, page, pageSize);
             return RouteMessages.OkPaged("wishes", wishes, "Desejos listados com sucesso");
         }
         catch (KeyNotFoundException ex)
@@ -295,7 +298,7 @@ public class WishesController(IWishService wishService, ILogger<WishesController
         try
         {
             var userId = GetCurrentUserId();
-            var wishes = await _wishService.GetWishesAsync(userId, null, null, null, null, 1, 1000);
+            var wishes = await _wishService.GetWishesAsync(userId, null, null, null, null, null, 1, 1000);
             
             var stats = new Dictionary<string, object>
             {
@@ -351,6 +354,107 @@ public class WishesController(IWishService wishService, ILogger<WishesController
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao marcar desejo como importante");
+            return RouteMessages.InternalError("Erro ao atualizar desejo", "Erro interno");
+        }
+    }
+
+    [HttpPost("{id}/favorite")]
+    public async Task<ActionResult> AddFavorite(long id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _favoriteService.AddFavoriteAsync(userId, ContentType.Wish, id);
+            return RouteMessages.Ok("Desejo marcado como favorito", "Favorito adicionado");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.NotFound(ex.Message, "Desejo não encontrado");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao adicionar favorito");
+            return RouteMessages.InternalError("Erro ao adicionar favorito", "Erro interno");
+        }
+    }
+
+    [HttpDelete("{id}/favorite")]
+    public async Task<ActionResult> RemoveFavorite(long id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _favoriteService.RemoveFavoriteAsync(userId, ContentType.Wish, id);
+            return RouteMessages.Ok("Favorito removido com sucesso", "Favorito removido");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao remover favorito");
+            return RouteMessages.InternalError("Erro ao remover favorito", "Erro interno");
+        }
+    }
+
+    [HttpGet("favorites")]
+    public async Task<ActionResult> GetFavorites([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var favorites = await _favoriteService.GetFavoritesAsync(userId, ContentType.Wish, page, pageSize);
+            return RouteMessages.OkPaged("favorites", favorites, "Favoritos listados com sucesso");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao listar favoritos");
+            return RouteMessages.InternalError("Erro ao listar favoritos", "Erro interno");
+        }
+    }
+
+    [HttpGet("priority")]
+    public async Task<ActionResult> GetWishesByPriority([FromQuery] int? minImportanceLevel, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var wishes = await _wishService.GetWishesByPriorityAsync(userId, minImportanceLevel, page, pageSize);
+            return RouteMessages.OkPaged("wishes", wishes, "Desejos por prioridade listados com sucesso");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.BadRequest(ex.Message, "Relacionamento não encontrado");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao listar desejos por prioridade");
+            return RouteMessages.InternalError("Erro ao listar desejos por prioridade", "Erro interno");
+        }
+    }
+
+    [HttpPost("{id}/fulfill")]
+    public async Task<ActionResult> FulfillWish(long id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var wish = await _wishService.FulfillWishAsync(id, userId);
+            var data = new Dictionary<string, object> { { "wish", wish } };
+            return RouteMessages.Ok("Desejo marcado como realizado com sucesso", "Desejo atualizado", data);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.NotFound(ex.Message, "Desejo não encontrado");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return RouteMessages.Unauthorized(ex.Message, "Acesso negado");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return RouteMessages.BadRequest(ex.Message, "Erro ao atualizar desejo");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao marcar desejo como realizado");
             return RouteMessages.InternalError("Erro ao atualizar desejo", "Erro interno");
         }
     }

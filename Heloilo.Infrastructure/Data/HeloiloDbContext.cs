@@ -46,6 +46,16 @@ public class HeloiloDbContext : DbContext
     // Story entities
     public DbSet<StoryPage> StoryPages { get; set; } = null!;
 
+    // Auth entities
+    public DbSet<PasswordResetToken> PasswordResetTokens { get; set; } = null!;
+    public DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; } = null!;
+
+    // Favorite entities
+    public DbSet<Favorite> Favorites { get; set; } = null!;
+
+    // Shared content entities
+    public DbSet<SharedContent> SharedContents { get; set; } = null!;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

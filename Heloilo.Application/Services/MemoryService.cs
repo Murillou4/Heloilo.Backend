@@ -46,7 +46,12 @@ public class MemoryService : IMemoryService
 
         if (tags != null && tags.Any())
         {
-            query = query.Where(m => m.Tags.Any(t => tags.Contains(t.TagName)));
+            // Busca parcial e case-insensitive
+            var normalizedTags = tags.Select(t => t.ToLowerInvariant().Trim()).Where(t => !string.IsNullOrEmpty(t)).ToList();
+            if (normalizedTags.Any())
+            {
+                query = query.Where(m => m.Tags.Any(t => normalizedTags.Any(nt => t.TagName.ToLowerInvariant().Contains(nt))));
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -275,6 +280,79 @@ public class MemoryService : IMemoryService
             .ToListAsync();
 
         return tags;
+    }
+
+    public async Task<Dictionary<string, object>> GetMemoryStatsAsync(long userId)
+    {
+        var relationship = await GetRelationshipAsync(userId);
+        if (relationship == null) throw new KeyNotFoundException("Relacionamento não encontrado");
+
+        var memories = await _context.Memories
+            .Include(m => m.Tags)
+            .Include(m => m.Media)
+            .Where(m => m.RelationshipId == relationship.Id && m.DeletedAt == null)
+            .ToListAsync();
+
+        var stats = new Dictionary<string, object>
+        {
+            { "totalMemories", memories.Count },
+            { "totalMedia", memories.Sum(m => m.Media.Count) },
+            { "memoriesWithMedia", memories.Count(m => m.Media.Any()) },
+            { "memoriesWithTags", memories.Count(m => m.Tags.Any()) },
+            { "totalTags", memories.SelectMany(m => m.Tags).Select(t => t.TagName).Distinct().Count() },
+            { "byMonth", memories.GroupBy(m => new { m.MemoryDate.Year, m.MemoryDate.Month })
+                .OrderByDescending(g => g.Key.Year).ThenByDescending(g => g.Key.Month)
+                .Take(12)
+                .ToDictionary(g => $"{g.Key.Year}-{g.Key.Month:D2}", g => g.Count()) },
+            { "byTag", memories.SelectMany(m => m.Tags)
+                .GroupBy(t => t.TagName)
+                .OrderByDescending(g => g.Count())
+                .Take(10)
+                .ToDictionary(g => g.Key, g => g.Count()) },
+            { "oldestMemory", memories.Any() ? memories.Min(m => m.MemoryDate).ToString("yyyy-MM-dd") : string.Empty },
+            { "newestMemory", memories.Any() ? memories.Max(m => m.MemoryDate).ToString("yyyy-MM-dd") : string.Empty }
+        };
+
+        return stats;
+    }
+
+    public async Task<Dictionary<string, object>> GetMemoryTimelineAsync(long userId, DateOnly? startDate = null, DateOnly? endDate = null)
+    {
+        var relationship = await GetRelationshipAsync(userId);
+        if (relationship == null) throw new KeyNotFoundException("Relacionamento não encontrado");
+
+        var query = _context.Memories
+            .Include(m => m.Media)
+            .Include(m => m.Tags)
+            .Where(m => m.RelationshipId == relationship.Id && m.DeletedAt == null);
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(m => m.MemoryDate >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(m => m.MemoryDate <= endDate.Value);
+        }
+
+        var memories = await query
+            .OrderBy(m => m.MemoryDate)
+            .ToListAsync();
+
+        // Agrupar por período (ano, mês, semana)
+        var timeline = new Dictionary<string, object>
+        {
+            { "byYear", memories.GroupBy(m => m.MemoryDate.Year)
+                .OrderBy(g => g.Key)
+                .ToDictionary(g => g.Key.ToString(), g => g.Select(MapToDto).ToList()) },
+            { "byMonth", memories.GroupBy(m => new { m.MemoryDate.Year, m.MemoryDate.Month })
+                .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                .ToDictionary(g => $"{g.Key.Year}-{g.Key.Month:D2}", g => g.Select(MapToDto).ToList()) },
+            { "totalPeriods", memories.GroupBy(m => new { m.MemoryDate.Year, m.MemoryDate.Month }).Count() }
+        };
+
+        return timeline;
     }
 
     private async Task<Relationship?> GetRelationshipAsync(long userId)

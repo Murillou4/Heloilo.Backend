@@ -1,5 +1,5 @@
 using Heloilo.Domain.Models.Common;
-
+using Heloilo.Domain.Models.Enums;
 
 namespace Heloilo.Domain.Models.Entities;
 
@@ -18,6 +18,10 @@ public class Wish : BaseEntity, ISoftDeletable
     public byte[]? ImageBlob { get; set; }
 
     public int ImportanceLevel { get; set; } = 3;
+
+    public WishStatus Status { get; set; } = WishStatus.Pending;
+
+    public DateTime? FulfilledAt { get; set; }
 
     public DateTime? DeletedAt { get; set; }
 

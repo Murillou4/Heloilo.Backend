@@ -32,6 +32,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.IsActive)
             .HasDefaultValue(true);
 
+        builder.Property(u => u.EmailVerified)
+            .HasDefaultValue(false);
+
         builder.Property(u => u.ProfilePhotoBlob)
             .HasColumnType("BLOB");
 

@@ -21,19 +21,23 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly ILogger<AuthService> _logger;
     private readonly IMemoryCache _cache;
+    private readonly IEmailService _emailService;
     private const int MAX_LOGIN_ATTEMPTS = 5;
     private const int BLOCK_DURATION_MINUTES = 15;
+    private const int TOKEN_EXPIRATION_HOURS = 24;
 
     public AuthService(
         HeloiloDbContext context,
         IConfiguration configuration,
         ILogger<AuthService> logger,
-        IMemoryCache cache)
+        IMemoryCache cache,
+        IEmailService emailService)
     {
         _context = context;
         _configuration = configuration;
         _logger = logger;
         _cache = cache;
+        _emailService = emailService;
     }
 
     public async Task<RegisterResponse> RegisterAsync(RegisterRequest request)
@@ -63,6 +67,9 @@ public class AuthService : IAuthService
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+
+        // Criar token de verificação de email
+        await CreateEmailVerificationTokenAsync(user);
 
         // Gerar tokens
         var (accessToken, refreshToken, expiresAt) = GenerateTokens(user);
@@ -241,6 +248,168 @@ public class AuthService : IAuthService
         {
             return null;
         }
+    }
+
+    public async Task<bool> ForgotPasswordAsync(string email)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
+
+        if (user == null)
+        {
+            // Por segurança, não revelar se o email existe ou não
+            _logger.LogWarning("Tentativa de recuperação de senha para email não encontrado: {Email}", email);
+            return true; // Retornar true mesmo se não encontrar para não revelar informações
+        }
+
+        // Invalidar tokens anteriores
+        var existingTokens = await _context.PasswordResetTokens
+            .Where(t => t.UserId == user.Id && !t.IsUsed && t.ExpiresAt > DateTime.UtcNow)
+            .ToListAsync();
+
+        foreach (var token in existingTokens)
+        {
+            token.IsUsed = true;
+            token.UsedAt = DateTime.UtcNow;
+        }
+
+        // Criar novo token
+        var resetToken = new PasswordResetToken
+        {
+            UserId = user.Id,
+            Token = GenerateSecureToken(),
+            ExpiresAt = DateTime.UtcNow.AddHours(TOKEN_EXPIRATION_HOURS)
+        };
+
+        _context.PasswordResetTokens.Add(resetToken);
+        await _context.SaveChangesAsync();
+
+        // Enviar email
+        await _emailService.SendPasswordResetEmailAsync(user.Email, resetToken.Token, resetToken.ExpiresAt);
+
+        _logger.LogInformation("Token de recuperação de senha criado para usuário {UserId}", user.Id);
+        return true;
+    }
+
+    public async Task<bool> ResetPasswordAsync(string token, string newPassword)
+    {
+        var resetToken = await _context.PasswordResetTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Token == token && !t.IsUsed && t.ExpiresAt > DateTime.UtcNow);
+
+        if (resetToken == null)
+        {
+            throw new InvalidOperationException("Token inválido ou expirado");
+        }
+
+        if (resetToken.User.DeletedAt != null || !resetToken.User.IsActive)
+        {
+            throw new InvalidOperationException("Usuário não encontrado ou inativo");
+        }
+
+        // Atualizar senha
+        resetToken.User.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        resetToken.User.UpdatedAt = DateTime.UtcNow;
+
+        // Marcar token como usado
+        resetToken.IsUsed = true;
+        resetToken.UsedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Senha redefinida para usuário {UserId}", resetToken.User.Id);
+        return true;
+    }
+
+    public async Task<bool> VerifyEmailAsync(string token)
+    {
+        var verificationToken = await _context.EmailVerificationTokens
+            .Include(t => t.User)
+            .FirstOrDefaultAsync(t => t.Token == token && !t.IsUsed && t.ExpiresAt > DateTime.UtcNow);
+
+        if (verificationToken == null)
+        {
+            throw new InvalidOperationException("Token inválido ou expirado");
+        }
+
+        if (verificationToken.User.DeletedAt != null || !verificationToken.User.IsActive)
+        {
+            throw new InvalidOperationException("Usuário não encontrado ou inativo");
+        }
+
+        // Marcar email como verificado
+        verificationToken.User.EmailVerified = true;
+        verificationToken.User.UpdatedAt = DateTime.UtcNow;
+
+        // Marcar token como usado
+        verificationToken.IsUsed = true;
+        verificationToken.UsedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Email verificado para usuário {UserId}", verificationToken.User.Id);
+        return true;
+    }
+
+    public async Task<bool> ResendVerificationAsync(string email)
+    {
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == email && u.DeletedAt == null);
+
+        if (user == null)
+        {
+            // Por segurança, não revelar se o email existe ou não
+            _logger.LogWarning("Tentativa de reenvio de verificação para email não encontrado: {Email}", email);
+            return true;
+        }
+
+        if (user.EmailVerified)
+        {
+            throw new InvalidOperationException("Email já está verificado");
+        }
+
+        // Invalidar tokens anteriores
+        var existingTokens = await _context.EmailVerificationTokens
+            .Where(t => t.UserId == user.Id && !t.IsUsed && t.ExpiresAt > DateTime.UtcNow)
+            .ToListAsync();
+
+        foreach (var token in existingTokens)
+        {
+            token.IsUsed = true;
+            token.UsedAt = DateTime.UtcNow;
+        }
+
+        // Criar novo token
+        await CreateEmailVerificationTokenAsync(user);
+
+        _logger.LogInformation("Token de verificação de email reenviado para usuário {UserId}", user.Id);
+        return true;
+    }
+
+    private async Task CreateEmailVerificationTokenAsync(User user)
+    {
+        var verificationToken = new EmailVerificationToken
+        {
+            UserId = user.Id,
+            Token = GenerateSecureToken(),
+            ExpiresAt = DateTime.UtcNow.AddHours(TOKEN_EXPIRATION_HOURS)
+        };
+
+        _context.EmailVerificationTokens.Add(verificationToken);
+        await _context.SaveChangesAsync();
+
+        // Enviar email
+        await _emailService.SendVerificationEmailAsync(user.Email, verificationToken.Token, verificationToken.ExpiresAt);
+    }
+
+    private string GenerateSecureToken()
+    {
+        var bytes = new byte[32];
+        using (var rng = RandomNumberGenerator.Create())
+        {
+            rng.GetBytes(bytes);
+        }
+        return Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").Replace("=", "");
     }
 
     private (string AccessToken, string RefreshToken, DateTime ExpiresAt) GenerateTokens(User user)

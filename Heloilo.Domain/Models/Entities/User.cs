@@ -15,6 +15,8 @@ public class User : BaseEntity, ISoftDeletable
 
     public bool IsActive { get; set; } = true;
 
+    public bool EmailVerified { get; set; } = false;
+
     public DateTime? DeletedAt { get; set; }
 
     // Navigation properties

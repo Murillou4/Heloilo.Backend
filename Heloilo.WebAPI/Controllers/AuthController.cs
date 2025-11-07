@@ -167,5 +167,131 @@ public class AuthController : BaseController
             return RouteMessages.InternalError("Erro ao processar logout", "Erro interno");
         }
     }
+
+    /// <summary>
+    /// Solicita recuperação de senha
+    /// </summary>
+    /// <param name="request">Email do usuário</param>
+    /// <returns>Confirmação de envio do email de recuperação</returns>
+    /// <response code="200">Email de recuperação enviado (ou seria enviado em produção)</response>
+    /// <response code="400">Dados inválidos</response>
+    /// <response code="500">Erro interno do servidor</response>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        try
+        {
+            var validationError = ValidateModelState();
+            if (validationError != null) return validationError;
+
+            await _authService.ForgotPasswordAsync(request.Email);
+            return RouteMessages.Ok(
+                "Se o email estiver cadastrado, você receberá instruções para redefinir sua senha",
+                "Solicitação processada"
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao processar solicitação de recuperação de senha");
+            return RouteMessages.InternalError("Erro ao processar solicitação", "Erro interno");
+        }
+    }
+
+    /// <summary>
+    /// Redefine a senha usando um token de recuperação
+    /// </summary>
+    /// <param name="request">Token e nova senha</param>
+    /// <returns>Confirmação de redefinição de senha</returns>
+    /// <response code="200">Senha redefinida com sucesso</response>
+    /// <response code="400">Token inválido ou expirado</response>
+    /// <response code="500">Erro interno do servidor</response>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        try
+        {
+            var validationError = ValidateModelState();
+            if (validationError != null) return validationError;
+
+            await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
+            return RouteMessages.Ok("Senha redefinida com sucesso", "Senha atualizada");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return RouteMessages.BadRequest(ex.Message, "Erro ao redefinir senha");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao redefinir senha");
+            return RouteMessages.InternalError("Erro ao processar redefinição de senha", "Erro interno");
+        }
+    }
+
+    /// <summary>
+    /// Verifica o email do usuário usando um token
+    /// </summary>
+    /// <param name="request">Token de verificação</param>
+    /// <returns>Confirmação de verificação de email</returns>
+    /// <response code="200">Email verificado com sucesso</response>
+    /// <response code="400">Token inválido ou expirado</response>
+    /// <response code="500">Erro interno do servidor</response>
+    [HttpPost("verify-email")]
+    [AllowAnonymous]
+    public async Task<ActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
+    {
+        try
+        {
+            var validationError = ValidateModelState();
+            if (validationError != null) return validationError;
+
+            await _authService.VerifyEmailAsync(request.Token);
+            return RouteMessages.Ok("Email verificado com sucesso", "Verificação concluída");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return RouteMessages.BadRequest(ex.Message, "Erro ao verificar email");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao verificar email");
+            return RouteMessages.InternalError("Erro ao processar verificação de email", "Erro interno");
+        }
+    }
+
+    /// <summary>
+    /// Reenvia o email de verificação
+    /// </summary>
+    /// <param name="request">Email do usuário</param>
+    /// <returns>Confirmação de reenvio do email</returns>
+    /// <response code="200">Email de verificação reenviado (ou seria reenviado em produção)</response>
+    /// <response code="400">Email já verificado ou dados inválidos</response>
+    /// <response code="500">Erro interno do servidor</response>
+    [HttpPost("resend-verification")]
+    [AllowAnonymous]
+    public async Task<ActionResult> ResendVerification([FromBody] ResendVerificationRequest request)
+    {
+        try
+        {
+            var validationError = ValidateModelState();
+            if (validationError != null) return validationError;
+
+            await _authService.ResendVerificationAsync(request.Email);
+            return RouteMessages.Ok(
+                "Se o email estiver cadastrado e não verificado, você receberá um novo email de verificação",
+                "Solicitação processada"
+            );
+        }
+        catch (InvalidOperationException ex)
+        {
+            return RouteMessages.BadRequest(ex.Message, "Erro ao reenviar verificação");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao reenviar email de verificação");
+            return RouteMessages.InternalError("Erro ao processar solicitação", "Erro interno");
+        }
+    }
 }
 

@@ -1,5 +1,6 @@
 using Heloilo.Application.DTOs.Story;
 using Heloilo.Application.Interfaces;
+using Heloilo.Domain.Models.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using API;
@@ -12,11 +13,13 @@ namespace Heloilo.WebAPI.Controllers;
 public class StoryPagesController : BaseController
 {
     private readonly IStoryService _storyService;
+    private readonly IFavoriteService _favoriteService;
     private readonly ILogger<StoryPagesController> _logger;
 
-    public StoryPagesController(IStoryService storyService, ILogger<StoryPagesController> logger)
+    public StoryPagesController(IStoryService storyService, IFavoriteService favoriteService, ILogger<StoryPagesController> logger)
     {
         _storyService = storyService;
+        _favoriteService = favoriteService;
         _logger = logger;
     }
 
@@ -122,6 +125,58 @@ public class StoryPagesController : BaseController
         {
             _logger.LogError(ex, "Erro ao excluir página da história");
             return RouteMessages.InternalError("Erro ao excluir página da história", "Erro interno");
+        }
+    }
+
+    [HttpPost("{id}/favorite")]
+    public async Task<ActionResult> AddFavorite(long id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _favoriteService.AddFavoriteAsync(userId, ContentType.StoryPage, id);
+            return RouteMessages.Ok("Página marcada como favorita", "Favorito adicionado");
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.NotFound(ex.Message, "Página não encontrada");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao adicionar favorito");
+            return RouteMessages.InternalError("Erro ao adicionar favorito", "Erro interno");
+        }
+    }
+
+    [HttpDelete("{id}/favorite")]
+    public async Task<ActionResult> RemoveFavorite(long id)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            await _favoriteService.RemoveFavoriteAsync(userId, ContentType.StoryPage, id);
+            return RouteMessages.Ok("Favorito removido com sucesso", "Favorito removido");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao remover favorito");
+            return RouteMessages.InternalError("Erro ao remover favorito", "Erro interno");
+        }
+    }
+
+    [HttpGet("favorites")]
+    public async Task<ActionResult> GetFavorites([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var favorites = await _favoriteService.GetFavoritesAsync(userId, ContentType.StoryPage, page, pageSize);
+            return RouteMessages.OkPaged("favorites", favorites, "Favoritos listados com sucesso");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao listar favoritos");
+            return RouteMessages.InternalError("Erro ao listar favoritos", "Erro interno");
         }
     }
 }

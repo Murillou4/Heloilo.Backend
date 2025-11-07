@@ -1,5 +1,6 @@
 using Heloilo.Application.DTOs.Activity;
 using Heloilo.Application.Interfaces;
+using Heloilo.Domain.Models.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using API;
@@ -161,4 +162,71 @@ public class DailyActivitiesController : BaseController
             return RouteMessages.InternalError("Erro ao obter atividades do parceiro", "Erro interno");
         }
     }
+
+    [HttpGet("recurring")]
+    public async Task<ActionResult> GetRecurringActivities([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var activities = await _activityService.GetRecurringActivitiesAsync(userId, page, pageSize);
+            return RouteMessages.OkPaged("activities", activities, "Atividades recorrentes listadas com sucesso");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao listar atividades recorrentes");
+            return RouteMessages.InternalError("Erro ao listar atividades recorrentes", "Erro interno");
+        }
+    }
+
+    [HttpPost("{id}/recurrence")]
+    public async Task<ActionResult> CreateRecurrence(long id, [FromBody] CreateRecurrenceRequest request)
+    {
+        try
+        {
+            var validationError = ValidateModelState();
+            if (validationError != null) return validationError;
+
+            var userId = GetCurrentUserId();
+            var activity = await _activityService.CreateRecurrenceAsync(id, userId, request.RecurrenceType, request.EndDate);
+            var data = new Dictionary<string, object> { { "activity", activity } };
+            return RouteMessages.Ok("Recorrência criada com sucesso", "Recorrência criada", data);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return RouteMessages.NotFound(ex.Message, "Atividade não encontrada");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return RouteMessages.Unauthorized(ex.Message, "Acesso negado");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao criar recorrência");
+            return RouteMessages.InternalError("Erro ao criar recorrência", "Erro interno");
+        }
+    }
+
+    [HttpGet("calendar")]
+    public async Task<ActionResult> GetCalendar([FromQuery] DateOnly? startDate, [FromQuery] DateOnly? endDate)
+    {
+        try
+        {
+            var userId = GetCurrentUserId();
+            var calendar = await _activityService.GetActivitiesCalendarAsync(userId, startDate, endDate);
+            var data = new Dictionary<string, object> { { "calendar", calendar } };
+            return RouteMessages.Ok("Calendário obtido com sucesso", "Calendário", data);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao obter calendário");
+            return RouteMessages.InternalError("Erro ao obter calendário", "Erro interno");
+        }
+    }
+}
+
+public class CreateRecurrenceRequest
+{
+    public RecurrenceType RecurrenceType { get; set; }
+    public DateOnly? EndDate { get; set; }
 }
