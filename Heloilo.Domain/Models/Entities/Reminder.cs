@@ -2,7 +2,7 @@ using Heloilo.Domain.Models.Common;
 
 namespace Heloilo.Domain.Models.Entities;
 
-public class Reminder : BaseEntity
+public class Reminder : BaseEntity, ISoftDeletable
 {
     public long UserId { get; set; }
 
@@ -23,6 +23,8 @@ public class Reminder : BaseEntity
     public DateTime? CompletedAt { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    public DateTime? DeletedAt { get; set; }
 
     // Navigation properties
     public virtual User User { get; set; } = null!;

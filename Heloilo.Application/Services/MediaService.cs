@@ -1,3 +1,4 @@
+using Heloilo.Application.DTOs.Shared;
 using Heloilo.Application.Interfaces;
 using Heloilo.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +14,7 @@ public class MediaService : IMediaService
         _context = context;
     }
 
-    public async Task<byte[]?> GetUserPhotoAsync(long userId, long requestingUserId)
+    public async Task<MediaFileResult?> GetUserPhotoAsync(long userId, long requestingUserId)
     {
         // Usuário pode ver sua própria foto ou a foto do parceiro
         var user = await _context.Users
@@ -39,10 +40,15 @@ public class MediaService : IMediaService
             }
         }
 
-        return user.ProfilePhotoBlob;
+        if (user.ProfilePhotoBlob == null || user.ProfilePhotoBlob.Length == 0)
+        {
+            return null;
+        }
+
+        return new MediaFileResult(user.ProfilePhotoBlob, "image/jpeg");
     }
 
-    public async Task<byte[]?> GetMemoryMediaAsync(long mediaId, long userId)
+    public async Task<MediaFileResult?> GetMemoryMediaAsync(long mediaId, long userId)
     {
         var media = await _context.MemoryMedia
             .Include(m => m.Memory)
@@ -66,10 +72,16 @@ public class MediaService : IMediaService
             throw new UnauthorizedAccessException("Acesso negado");
         }
 
-        return media.FileBlob;
+        if (media.FileBlob == null || media.FileBlob.Length == 0)
+        {
+            return null;
+        }
+
+        var mimeType = string.IsNullOrWhiteSpace(media.MimeType) ? "application/octet-stream" : media.MimeType;
+        return new MediaFileResult(media.FileBlob, mimeType);
     }
 
-    public async Task<byte[]?> GetMessageMediaAsync(long mediaId, long userId)
+    public async Task<MediaFileResult?> GetMessageMediaAsync(long mediaId, long userId)
     {
         var media = await _context.MessageMedia
             .Include(m => m.ChatMessage)
@@ -93,10 +105,16 @@ public class MediaService : IMediaService
             throw new UnauthorizedAccessException("Acesso negado");
         }
 
-        return media.FileBlob;
+        if (media.FileBlob == null || media.FileBlob.Length == 0)
+        {
+            return null;
+        }
+
+        var mimeType = string.IsNullOrWhiteSpace(media.MimeType) ? "application/octet-stream" : media.MimeType;
+        return new MediaFileResult(media.FileBlob, mimeType);
     }
 
-    public async Task<byte[]?> GetStoryPageImageAsync(long pageId, long userId)
+    public async Task<MediaFileResult?> GetStoryPageImageAsync(long pageId, long userId)
     {
         var page = await _context.StoryPages
             .FirstOrDefaultAsync(p => p.Id == pageId && p.DeletedAt == null);
@@ -114,10 +132,15 @@ public class MediaService : IMediaService
             throw new UnauthorizedAccessException("Acesso negado");
         }
 
-        return page.ImageBlob;
+        if (page.ImageBlob == null || page.ImageBlob.Length == 0)
+        {
+            return null;
+        }
+
+        return new MediaFileResult(page.ImageBlob, "image/jpeg");
     }
 
-    public async Task<byte[]?> GetWishImageAsync(long wishId, long userId)
+    public async Task<MediaFileResult?> GetWishImageAsync(long wishId, long userId)
     {
         var wish = await _context.Wishes
             .FirstOrDefaultAsync(w => w.Id == wishId && w.DeletedAt == null);
@@ -135,7 +158,12 @@ public class MediaService : IMediaService
             throw new UnauthorizedAccessException("Acesso negado");
         }
 
-        return wish.ImageBlob;
+        if (wish.ImageBlob == null || wish.ImageBlob.Length == 0)
+        {
+            return null;
+        }
+
+        return new MediaFileResult(wish.ImageBlob, "image/jpeg");
     }
 }
 

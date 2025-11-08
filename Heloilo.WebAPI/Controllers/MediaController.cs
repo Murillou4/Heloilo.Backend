@@ -36,12 +36,12 @@ public class MediaController : BaseController
             var requestingUserId = GetCurrentUserId();
             var photo = await _mediaService.GetUserPhotoAsync(userId, requestingUserId);
 
-            if (photo == null || photo.Length == 0)
+            if (photo == null || photo.Content.Length == 0)
             {
                 return RouteMessages.NotFound("Foto não encontrada", "Recurso não encontrado");
             }
 
-            return File(photo, "image/jpeg");
+            return File(photo.Content, photo.ContentType);
         }
         catch (KeyNotFoundException ex)
         {
@@ -75,13 +75,12 @@ public class MediaController : BaseController
             var userId = GetCurrentUserId();
             var media = await _mediaService.GetMemoryMediaAsync(mediaId, userId);
 
-            if (media == null || media.Length == 0)
+            if (media == null || media.Content.Length == 0)
             {
                 return RouteMessages.NotFound("Mídia não encontrada", "Recurso não encontrado");
             }
 
-            // Determinar content type baseado na extensão ou usar padrão
-            return File(media, "image/jpeg");
+            return File(media.Content, media.ContentType);
         }
         catch (KeyNotFoundException ex)
         {
@@ -115,12 +114,12 @@ public class MediaController : BaseController
             var userId = GetCurrentUserId();
             var media = await _mediaService.GetMessageMediaAsync(mediaId, userId);
 
-            if (media == null || media.Length == 0)
+            if (media == null || media.Content.Length == 0)
             {
                 return RouteMessages.NotFound("Mídia não encontrada", "Recurso não encontrado");
             }
 
-            return File(media, "image/jpeg");
+            return File(media.Content, media.ContentType);
         }
         catch (KeyNotFoundException ex)
         {
@@ -154,12 +153,12 @@ public class MediaController : BaseController
             var userId = GetCurrentUserId();
             var image = await _mediaService.GetStoryPageImageAsync(pageId, userId);
 
-            if (image == null || image.Length == 0)
+            if (image == null || image.Content.Length == 0)
             {
                 return RouteMessages.NotFound("Imagem não encontrada", "Recurso não encontrado");
             }
 
-            return File(image, "image/jpeg");
+            return File(image.Content, image.ContentType);
         }
         catch (KeyNotFoundException ex)
         {
@@ -193,12 +192,12 @@ public class MediaController : BaseController
             var userId = GetCurrentUserId();
             var image = await _mediaService.GetWishImageAsync(wishId, userId);
 
-            if (image == null || image.Length == 0)
+            if (image == null || image.Content.Length == 0)
             {
                 return RouteMessages.NotFound("Imagem não encontrada", "Recurso não encontrado");
             }
 
-            return File(image, "image/jpeg");
+            return File(image.Content, image.ContentType);
         }
         catch (KeyNotFoundException ex)
         {

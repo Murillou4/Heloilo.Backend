@@ -1,10 +1,12 @@
 using Heloilo.Application.DTOs.Memory;
 using Heloilo.Application.Helpers;
+using Heloilo.Application.Hubs;
 using Heloilo.Application.Interfaces;
 using Heloilo.Domain.Models.Common;
 using Heloilo.Domain.Models.Entities;
 using Heloilo.Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,11 +16,13 @@ public class MemoryService : IMemoryService
 {
     private readonly HeloiloDbContext _context;
     private readonly ILogger<MemoryService> _logger;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public MemoryService(HeloiloDbContext context, ILogger<MemoryService> logger)
+    public MemoryService(HeloiloDbContext context, ILogger<MemoryService> logger, IHubContext<NotificationHub> hubContext)
     {
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<PagedResult<MemoryDto>> GetMemoriesAsync(long userId, DateOnly? startDate = null, DateOnly? endDate = null, List<string>? tags = null, string? search = null, string? sortBy = null, string? sortOrder = null, int page = 1, int pageSize = 20)
@@ -157,7 +161,10 @@ public class MemoryService : IMemoryService
             await _context.SaveChangesAsync();
         }
 
-        return await GetMemoryByIdAsync(memory.Id, userId);
+        var memoryDto = await GetMemoryByIdAsync(memory.Id, userId);
+        await NotifyPartnerAsync(userId, "MemoryCreated", memoryDto);
+
+        return memoryDto;
     }
 
     public async Task<MemoryDto> UpdateMemoryAsync(long memoryId, long userId, CreateMemoryDto dto)
@@ -177,7 +184,10 @@ public class MemoryService : IMemoryService
 
         await _context.SaveChangesAsync();
 
-        return await GetMemoryByIdAsync(memoryId, userId);
+        var memoryDto = await GetMemoryByIdAsync(memoryId, userId);
+        await NotifyPartnerAsync(userId, "MemoryUpdated", memoryDto);
+
+        return memoryDto;
     }
 
     public async Task<bool> DeleteMemoryAsync(long memoryId, long userId)
@@ -193,6 +203,8 @@ public class MemoryService : IMemoryService
 
         memory.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        await NotifyPartnerAsync(userId, "MemoryDeleted", new { MemoryId = memoryId });
         return true;
     }
 
@@ -227,6 +239,8 @@ public class MemoryService : IMemoryService
 
         _context.MemoryMedia.Add(media);
         await _context.SaveChangesAsync();
+
+        await NotifyPartnerAsync(userId, "MemoryMediaAdded", new { MemoryId = memoryId, MediaId = media.Id });
 
         return media.Id;
     }
@@ -264,6 +278,8 @@ public class MemoryService : IMemoryService
 
         _context.MemoryMedia.Remove(media);
         await _context.SaveChangesAsync();
+
+        await NotifyPartnerAsync(userId, "MemoryMediaDeleted", new { MemoryId = memoryId, MediaId = mediaId });
 
         return true;
     }
@@ -359,6 +375,23 @@ public class MemoryService : IMemoryService
     {
         return await _context.Relationships
             .FirstOrDefaultAsync(r => (r.User1Id == userId || r.User2Id == userId) && r.IsActive && r.DeletedAt == null);
+    }
+
+    private async Task NotifyPartnerAsync(long userId, string eventName, object payload)
+    {
+        try
+        {
+            var relationship = await GetRelationshipAsync(userId);
+            if (relationship == null) return;
+
+            var partnerId = RelationshipValidationHelper.GetPartnerId(relationship, userId);
+            await _hubContext.Clients.Group($"user:{partnerId}")
+                .SendAsync(eventName, payload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro ao enviar evento {EventName} para o parceiro do usuário {UserId}", eventName, userId);
+        }
     }
 
     private static MemoryDto MapToDto(Memory memory)

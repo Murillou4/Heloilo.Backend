@@ -6,5 +6,7 @@ public enum NotificationType
     Comment = 2,
     Anniversary = 3,
     Chat = 4,
-    Mood = 5
+    Mood = 5,
+    Reminder = 6,
+    Activity = 7
 }

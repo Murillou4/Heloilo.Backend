@@ -75,6 +75,7 @@ public class HeloiloDbContext : DbContext
         modelBuilder.Entity<DailyActivity>().HasQueryFilter(e => e.DeletedAt == null);
         modelBuilder.Entity<ChatMessage>().HasQueryFilter(e => e.DeletedAt == null);
         modelBuilder.Entity<StoryPage>().HasQueryFilter(e => e.DeletedAt == null);
+        modelBuilder.Entity<Reminder>().HasQueryFilter(e => e.DeletedAt == null);
 
         // Global conventions for string properties
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

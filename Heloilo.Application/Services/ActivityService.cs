@@ -1,10 +1,12 @@
 using Heloilo.Application.DTOs.Activity;
 using Heloilo.Application.Helpers;
+using Heloilo.Application.Hubs;
 using Heloilo.Application.Interfaces;
 using Heloilo.Domain.Models.Common;
 using Heloilo.Domain.Models.Entities;
 using Heloilo.Domain.Models.Enums;
 using Heloilo.Infrastructure.Data;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -14,11 +16,13 @@ public class ActivityService : IActivityService
 {
     private readonly HeloiloDbContext _context;
     private readonly ILogger<ActivityService> _logger;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public ActivityService(HeloiloDbContext context, ILogger<ActivityService> logger)
+    public ActivityService(HeloiloDbContext context, ILogger<ActivityService> logger, IHubContext<NotificationHub> hubContext)
     {
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<PagedResult<DailyActivityDto>> GetActivitiesAsync(long userId, DateOnly? date = null, DateOnly? startDate = null, DateOnly? endDate = null, bool? isCompleted = null, bool? hasReminder = null, string? sortBy = null, string? sortOrder = null, int page = 1, int pageSize = 20)
@@ -101,7 +105,10 @@ public class ActivityService : IActivityService
         _context.DailyActivities.Add(activity);
         await _context.SaveChangesAsync();
 
-        return await GetActivityByIdAsync(activity.Id, userId);
+        var activityDto = await GetActivityByIdAsync(activity.Id, userId);
+        await NotifyPartnerAsync(userId, "DailyActivityCreated", activityDto);
+
+        return activityDto;
     }
 
     public async Task<DailyActivityDto> UpdateActivityAsync(long activityId, long userId, CreateActivityDto dto)
@@ -121,7 +128,10 @@ public class ActivityService : IActivityService
 
         await _context.SaveChangesAsync();
 
-        return await GetActivityByIdAsync(activityId, userId);
+        var activityDto = await GetActivityByIdAsync(activityId, userId);
+        await NotifyPartnerAsync(userId, "DailyActivityUpdated", activityDto);
+
+        return activityDto;
     }
 
     public async Task<bool> DeleteActivityAsync(long activityId, long userId)
@@ -136,6 +146,8 @@ public class ActivityService : IActivityService
 
         activity.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        await NotifyPartnerAsync(userId, "DailyActivityDeleted", new { ActivityId = activityId });
 
         return true;
     }
@@ -153,7 +165,10 @@ public class ActivityService : IActivityService
         activity.IsCompleted = true;
         await _context.SaveChangesAsync();
 
-        return await GetActivityByIdAsync(activityId, userId);
+        var activityDto = await GetActivityByIdAsync(activityId, userId);
+        await NotifyPartnerAsync(userId, "DailyActivityCompleted", activityDto);
+
+        return activityDto;
     }
 
     public async Task<PagedResult<DailyActivityDto>> GetPartnerActivitiesAsync(long userId, DateOnly? date = null, int page = 1, int pageSize = 20)
@@ -195,6 +210,23 @@ public class ActivityService : IActivityService
     {
         return await _context.Relationships
             .FirstOrDefaultAsync(r => (r.User1Id == userId || r.User2Id == userId) && r.IsActive && r.DeletedAt == null);
+    }
+
+    private async Task NotifyPartnerAsync(long userId, string eventName, object payload)
+    {
+        try
+        {
+            var relationship = await GetRelationshipAsync(userId);
+            if (relationship == null) return;
+
+            var partnerId = RelationshipValidationHelper.GetPartnerId(relationship, userId);
+            await _hubContext.Clients.Group($"user:{partnerId}")
+                .SendAsync(eventName, payload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro ao enviar evento {EventName} para o parceiro do usuário {UserId}", eventName, userId);
+        }
     }
 
     private static DailyActivityDto MapToDto(DailyActivity activity)
@@ -260,7 +292,10 @@ public class ActivityService : IActivityService
         _logger.LogInformation("Recorrência criada para atividade: ActivityId={ActivityId}, RecurrenceType={RecurrenceType}", 
             activityId, recurrenceType);
 
-        return await GetActivityByIdAsync(activityId, userId);
+        var activityDto = await GetActivityByIdAsync(activityId, userId);
+        await NotifyPartnerAsync(userId, "DailyActivityRecurrenceUpdated", activityDto);
+
+        return activityDto;
     }
 
     public async Task<Dictionary<string, object>> GetActivitiesCalendarAsync(long userId, DateOnly? startDate = null, DateOnly? endDate = null)

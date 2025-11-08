@@ -1,11 +1,13 @@
 using Heloilo.Application.DTOs.Wish;
 using Heloilo.Application.Helpers;
+using Heloilo.Application.Hubs;
 using Heloilo.Application.Interfaces;
 using Heloilo.Domain.Models.Common;
 using Heloilo.Domain.Models.Entities;
 using Heloilo.Domain.Models.Enums;
 using Heloilo.Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -16,12 +18,14 @@ public class WishService : IWishService
     private readonly HeloiloDbContext _context;
     private readonly ILogger<WishService> _logger;
     private readonly INotificationService _notificationService;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public WishService(HeloiloDbContext context, ILogger<WishService> logger, INotificationService notificationService)
+    public WishService(HeloiloDbContext context, ILogger<WishService> logger, INotificationService notificationService, IHubContext<NotificationHub> hubContext)
     {
         _context = context;
         _logger = logger;
         _notificationService = notificationService;
+        _hubContext = hubContext;
     }
 
     public async Task<PagedResult<WishDto>> GetWishesAsync(long userId, long? categoryId = null, string? search = null, string? sortBy = null, string? sortOrder = null, WishStatus? status = null, int page = 1, int pageSize = 20)
@@ -161,6 +165,8 @@ public class WishService : IWishService
         _context.Wishes.Add(wish);
         await _context.SaveChangesAsync();
 
+        var wishDto = await GetWishByIdAsync(wish.Id, userId);
+
         // Notificar o parceiro sobre o novo desejo
         try
         {
@@ -178,7 +184,9 @@ public class WishService : IWishService
             _logger.LogWarning(ex, "Erro ao criar notificação para novo desejo");
         }
 
-        return await GetWishByIdAsync(wish.Id, userId);
+        await NotifyPartnerAsync(userId, "WishCreated", wishDto, relationship);
+
+        return wishDto;
     }
 
     public async Task<WishDto> UpdateWishAsync(long wishId, long userId, UpdateWishDto dto, IFormFile? image = null)
@@ -250,7 +258,34 @@ public class WishService : IWishService
 
         await _context.SaveChangesAsync();
 
-        return await GetWishByIdAsync(wishId, userId);
+        var updatedWishDto = await GetWishByIdAsync(wishId, userId);
+
+        var relationship = await GetRelationshipAsync(userId);
+
+        if (relationship != null)
+        {
+            // Notificar o parceiro sobre a atualização do desejo
+            try
+            {
+                var partnerId = relationship.User1Id == userId ? relationship.User2Id : relationship.User1Id;
+                var truncatedTitle = updatedWishDto.Title.Length > 50 ? updatedWishDto.Title[..50] + "..." : updatedWishDto.Title;
+                await _notificationService.CreateAndSendNotificationAsync(
+                    partnerId,
+                    relationship.Id,
+                    "Desejo atualizado",
+                    $"Seu parceiro atualizou o desejo: {truncatedTitle}",
+                    NotificationType.Wish
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Erro ao criar notificação para atualização de desejo");
+            }
+
+            await NotifyPartnerAsync(userId, "WishUpdated", updatedWishDto, relationship);
+        }
+
+        return updatedWishDto;
     }
 
     public async Task<bool> DeleteWishAsync(long wishId, long userId)
@@ -270,6 +305,8 @@ public class WishService : IWishService
 
         wish.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        await NotifyPartnerAsync(userId, "WishDeleted", new { WishId = wishId });
 
         return true;
     }
@@ -354,10 +391,11 @@ public class WishService : IWishService
             .Include(c => c.User)
             .FirstOrDefaultAsync(c => c.Id == comment.Id);
 
+        var relationship = await GetRelationshipAsync(userId);
+
         // Notificar o parceiro sobre o novo comentário
         try
         {
-            var relationship = await GetRelationshipAsync(userId);
             if (relationship != null)
             {
                 var partnerId = relationship.User1Id == userId ? relationship.User2Id : relationship.User1Id;
@@ -376,7 +414,7 @@ public class WishService : IWishService
             _logger.LogWarning(ex, "Erro ao criar notificação para novo comentário");
         }
 
-        return new WishCommentDto
+        var commentDto = new WishCommentDto
         {
             Id = comment.Id,
             WishId = comment.WishId,
@@ -386,6 +424,10 @@ public class WishService : IWishService
             Content = comment.Content,
             CreatedAt = comment.CreatedAt
         };
+
+        await NotifyPartnerAsync(userId, "WishCommentCreated", commentDto, relationship);
+
+        return commentDto;
     }
 
     public async Task<WishCommentDto> UpdateCommentAsync(long commentId, long userId, CreateWishCommentDto dto)
@@ -413,7 +455,7 @@ public class WishService : IWishService
         comment.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        return new WishCommentDto
+        var commentDto = new WishCommentDto
         {
             Id = comment.Id,
             WishId = comment.WishId,
@@ -423,6 +465,11 @@ public class WishService : IWishService
             Content = comment.Content,
             CreatedAt = comment.CreatedAt
         };
+
+        var relationship = await GetRelationshipAsync(userId);
+        await NotifyPartnerAsync(userId, "WishCommentUpdated", commentDto, relationship);
+
+        return commentDto;
     }
 
     public async Task<bool> DeleteCommentAsync(long commentId, long userId)
@@ -442,6 +489,9 @@ public class WishService : IWishService
 
         comment.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        var relationship = await GetRelationshipAsync(userId);
+        await NotifyPartnerAsync(userId, "WishCommentDeleted", new { CommentId = commentId, WishId = comment.WishId }, relationship);
 
         return true;
     }
@@ -466,6 +516,23 @@ public class WishService : IWishService
             .FirstOrDefaultAsync(r =>
                 (r.User1Id == userId || r.User2Id == userId) &&
                 r.IsActive && r.DeletedAt == null);
+    }
+
+    private async Task NotifyPartnerAsync(long userId, string eventName, object payload, Relationship? relationship = null)
+    {
+        try
+        {
+            relationship ??= await GetRelationshipAsync(userId);
+            if (relationship == null) return;
+
+            var partnerId = RelationshipValidationHelper.GetPartnerId(relationship, userId);
+            await _hubContext.Clients.Group($"user:{partnerId}")
+                .SendAsync(eventName, payload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro ao enviar evento {EventName} para o parceiro do usuário {UserId}", eventName, userId);
+        }
     }
 
     private static WishDto MapToDto(Wish wish)

@@ -28,7 +28,7 @@ public class ReminderService : IReminderService
         if (pageSize > 100) pageSize = 100;
 
         var query = _context.Reminders
-            .Where(r => r.UserId == userId);
+            .Where(r => r.UserId == userId && r.DeletedAt == null);
 
         if (startDate.HasValue)
             query = query.Where(r => r.ReminderDate >= startDate.Value);
@@ -59,7 +59,7 @@ public class ReminderService : IReminderService
     public async Task<ReminderDto> GetReminderByIdAsync(long reminderId, long userId)
     {
         var reminder = await _context.Reminders
-            .FirstOrDefaultAsync(r => r.Id == reminderId && r.UserId == userId);
+            .FirstOrDefaultAsync(r => r.Id == reminderId && r.UserId == userId && r.DeletedAt == null);
 
         if (reminder == null)
             throw new KeyNotFoundException("Lembrete não encontrado");
@@ -103,7 +103,7 @@ public class ReminderService : IReminderService
     public async Task<ReminderDto> UpdateReminderAsync(long reminderId, long userId, UpdateReminderDto dto)
     {
         var reminder = await _context.Reminders
-            .FirstOrDefaultAsync(r => r.Id == reminderId && r.UserId == userId);
+            .FirstOrDefaultAsync(r => r.Id == reminderId && r.UserId == userId && r.DeletedAt == null);
 
         if (reminder == null)
             throw new KeyNotFoundException("Lembrete não encontrado");
@@ -137,12 +137,12 @@ public class ReminderService : IReminderService
     public async Task<bool> DeleteReminderAsync(long reminderId, long userId)
     {
         var reminder = await _context.Reminders
-            .FirstOrDefaultAsync(r => r.Id == reminderId && r.UserId == userId);
+            .FirstOrDefaultAsync(r => r.Id == reminderId && r.UserId == userId && r.DeletedAt == null);
 
         if (reminder == null)
             throw new KeyNotFoundException("Lembrete não encontrado");
 
-        _context.Reminders.Remove(reminder);
+        reminder.DeletedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         return true;
@@ -151,7 +151,7 @@ public class ReminderService : IReminderService
     public async Task<ReminderDto> MarkAsCompletedAsync(long reminderId, long userId)
     {
         var reminder = await _context.Reminders
-            .FirstOrDefaultAsync(r => r.Id == reminderId && r.UserId == userId);
+            .FirstOrDefaultAsync(r => r.Id == reminderId && r.UserId == userId && r.DeletedAt == null);
 
         if (reminder == null)
             throw new KeyNotFoundException("Lembrete não encontrado");

@@ -1,9 +1,12 @@
 using Heloilo.Application.DTOs.MoodLog;
+using Heloilo.Application.Helpers;
+using Heloilo.Application.Hubs;
 using Heloilo.Application.Interfaces;
 using Heloilo.Domain.Models.Common;
 using Heloilo.Domain.Models.Entities;
 using Heloilo.Domain.Models.Enums;
 using Heloilo.Infrastructure.Data;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,11 +16,13 @@ public class MoodLogService : IMoodLogService
 {
     private readonly HeloiloDbContext _context;
     private readonly ILogger<MoodLogService> _logger;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public MoodLogService(HeloiloDbContext context, ILogger<MoodLogService> logger)
+    public MoodLogService(HeloiloDbContext context, ILogger<MoodLogService> logger, IHubContext<NotificationHub> hubContext)
     {
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<MoodLogDto> CreateMoodLogAsync(long userId, CreateMoodLogDto dto)
@@ -39,7 +44,10 @@ public class MoodLogService : IMoodLogService
         _context.MoodLogs.Add(moodLog);
         await _context.SaveChangesAsync();
 
-        return await GetMoodLogByIdAsync(moodLog.Id);
+        var moodLogDto = await GetMoodLogByIdAsync(moodLog.Id);
+        await NotifyPartnerAsync(userId, "MoodLogCreated", moodLogDto);
+
+        return moodLogDto;
     }
 
     public async Task<PagedResult<MoodLogDto>> GetMoodLogsAsync(long userId, DateOnly? startDate = null, DateOnly? endDate = null, long? moodTypeId = null, string? moodCategory = null, string? sortBy = null, string? sortOrder = null, int page = 1, int pageSize = 20)
@@ -239,6 +247,23 @@ public class MoodLogService : IMoodLogService
     {
         return await _context.Relationships
             .FirstOrDefaultAsync(r => (r.User1Id == userId || r.User2Id == userId) && r.IsActive && r.DeletedAt == null);
+    }
+
+    private async Task NotifyPartnerAsync(long userId, string eventName, object payload)
+    {
+        try
+        {
+            var relationship = await GetRelationshipAsync(userId);
+            if (relationship == null) return;
+
+            var partnerId = RelationshipValidationHelper.GetPartnerId(relationship, userId);
+            await _hubContext.Clients.Group($"user:{partnerId}")
+                .SendAsync(eventName, payload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro ao enviar evento {EventName} para o parceiro do usuário {UserId}", eventName, userId);
+        }
     }
 
     private static MoodLogDto MapToDto(MoodLog log)

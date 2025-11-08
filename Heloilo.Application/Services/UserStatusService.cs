@@ -1,9 +1,11 @@
 using Heloilo.Application.DTOs.Status;
 using Heloilo.Application.Helpers;
+using Heloilo.Application.Hubs;
 using Heloilo.Application.Interfaces;
 using Heloilo.Domain.Models.Common;
 using Heloilo.Domain.Models.Entities;
 using Heloilo.Infrastructure.Data;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,11 +15,13 @@ public class UserStatusService : IUserStatusService
 {
     private readonly HeloiloDbContext _context;
     private readonly ILogger<UserStatusService> _logger;
+    private readonly IHubContext<NotificationHub> _hubContext;
 
-    public UserStatusService(HeloiloDbContext context, ILogger<UserStatusService> logger)
+    public UserStatusService(HeloiloDbContext context, ILogger<UserStatusService> logger, IHubContext<NotificationHub> hubContext)
     {
         _context = context;
         _logger = logger;
+        _hubContext = hubContext;
     }
 
     public async Task<UserStatusDto> GetCurrentStatusAsync(long userId)
@@ -75,7 +79,27 @@ public class UserStatusService : IUserStatusService
 
         await _context.SaveChangesAsync();
 
-        return await GetCurrentStatusAsync(userId);
+        var updatedStatus = await GetCurrentStatusAsync(userId);
+        await NotifyPartnerStatusUpdatedAsync(userId, updatedStatus);
+
+        return updatedStatus;
+    }
+
+    private async Task NotifyPartnerStatusUpdatedAsync(long userId, UserStatusDto statusDto)
+    {
+        try
+        {
+            var relationship = await GetRelationshipAsync(userId);
+            if (relationship == null) return;
+
+            var partnerId = RelationshipValidationHelper.GetPartnerId(relationship, userId);
+            await _hubContext.Clients.Group($"user:{partnerId}")
+                .SendAsync("PartnerStatusUpdated", statusDto);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Erro ao enviar atualização de status em tempo real para o parceiro do usuário {UserId}", userId);
+        }
     }
 
     public async Task<UserStatusDto?> GetPartnerStatusAsync(long userId)

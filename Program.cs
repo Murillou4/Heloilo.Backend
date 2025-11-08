@@ -8,6 +8,7 @@ using Heloilo.WebAPI.Swagger;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Heloilo.Application.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,8 @@ builder.Services.Configure<Microsoft.AspNetCore.ResponseCompression.GzipCompress
 
 // Add Application services
 Heloilo.Application.Extensions.ServiceCollectionExtensions.AddApplicationServices(builder.Services);
+
+builder.Services.AddHostedService<ReminderWorker>();
 
 // Add SignalR
 builder.Services.AddSignalR();
