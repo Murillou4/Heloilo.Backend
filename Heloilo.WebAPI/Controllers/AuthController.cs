@@ -40,10 +40,11 @@ public class AuthController : BaseController
             var response = await _authService.RegisterAsync(request);
             var user = new Dictionary<string, object>
             {
-                { "id", response.UserId },
-                { "email", response.Email },
-                { "name", response.Name },
-                { "nickname", response.Nickname ?? string.Empty }
+                { "id", response.User.Id },
+                { "email", response.User.Email },
+                { "name", response.User.Name },
+                { "nickname", response.User.Nickname ?? string.Empty },
+                {"hasRelationship", response.HasRelationship},
             };
             var data = new Dictionary<string, object>
             {
@@ -85,10 +86,10 @@ public class AuthController : BaseController
             var response = await _authService.LoginAsync(request);
             var user = new Dictionary<string, object>
             {
-                { "id", response.UserId },
-                { "email", response.Email },
-                { "name", response.Name },
-                { "nickname", response.Nickname ?? string.Empty },
+                { "id", response.User.Id },
+                { "email", response.User.Email },
+                { "name", response.User.Name },
+                { "nickname", response.User.Nickname ?? string.Empty },
                 { "hasRelationship", response.HasRelationship }
             };
             var data = new Dictionary<string, object>

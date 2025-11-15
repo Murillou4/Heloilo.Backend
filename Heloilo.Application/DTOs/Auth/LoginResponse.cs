@@ -1,11 +1,8 @@
 namespace Heloilo.Application.DTOs.Auth;
-
+using Heloilo.Domain.Models.Entities;
 public class LoginResponse
 {
-    public long UserId { get; set; }
-    public string Email { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string? Nickname { get; set; }
+    public User User{ get; set; } = new User();
     public string AccessToken { get; set; } = string.Empty;
     public string RefreshToken { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }

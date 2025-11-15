@@ -79,10 +79,7 @@ public class AuthService : IAuthService
 
         return new RegisterResponse
         {
-            UserId = user.Id,
-            Email = user.Email,
-            Name = user.Name,
-            Nickname = user.Nickname,
+            User = user,
             AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresAt = expiresAt
@@ -94,13 +91,13 @@ public class AuthService : IAuthService
         // Verificar bloqueio anti-brute force
         var blockKey = $"blocked:{request.Email.ToLowerInvariant()}";
         var attemptsKey = $"attempts:{request.Email.ToLowerInvariant()}";
-        
+
         if (_cache.TryGetValue(blockKey, out DateTime blockedUntil))
         {
             if (blockedUntil > DateTime.UtcNow)
             {
                 var remainingMinutes = (int)Math.Ceiling((blockedUntil - DateTime.UtcNow).TotalMinutes);
-                _logger.LogWarning("Tentativa de login bloqueada para email: {Email}. Bloqueado até: {BlockedUntil}", 
+                _logger.LogWarning("Tentativa de login bloqueada para email: {Email}. Bloqueado até: {BlockedUntil}",
                     request.Email, blockedUntil);
                 throw new UnauthorizedAccessException($"Conta bloqueada. Tente novamente em {remainingMinutes} minuto(s).");
             }
@@ -135,12 +132,12 @@ public class AuthService : IAuthService
             {
                 var blockUntil = DateTime.UtcNow.AddMinutes(BLOCK_DURATION_MINUTES);
                 _cache.Set(blockKey, blockUntil, TimeSpan.FromMinutes(BLOCK_DURATION_MINUTES));
-                _logger.LogWarning("Conta bloqueada por brute force para email: {Email}. Tentativas: {Attempts}", 
+                _logger.LogWarning("Conta bloqueada por brute force para email: {Email}. Tentativas: {Attempts}",
                     request.Email, attempts);
                 throw new UnauthorizedAccessException($"Muitas tentativas de login. Conta bloqueada por {BLOCK_DURATION_MINUTES} minutos.");
             }
 
-            _logger.LogWarning("Tentativa de login falhou para email: {Email}. Tentativa {Attempt}/{Max}", 
+            _logger.LogWarning("Tentativa de login falhou para email: {Email}. Tentativa {Attempt}/{Max}",
                 request.Email, attempts, MAX_LOGIN_ATTEMPTS);
             throw new UnauthorizedAccessException("Email ou senha incorretos");
         }
@@ -163,10 +160,7 @@ public class AuthService : IAuthService
 
         return new LoginResponse
         {
-            UserId = user.Id,
-            Email = user.Email,
-            Name = user.Name,
-            Nickname = user.Nickname,
+            User = user,
             AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresAt = expiresAt,
